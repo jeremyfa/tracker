@@ -12,20 +12,30 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     var immediateCallbacksLen:Int = 0;
 
+    var flushingImmediateCallbacks:Bool = false;
+
     /**
-     * Schedule immediate callback. These callbacks need to be flushed at some point by the backend
+     * Schedule immediate callback.
      * @param handleImmediate the callback to schedule
      */
     public function onceImmediate(handleImmediate:Void->Void):Void {
 
         immediateCallbacks[immediateCallbacksLen++] = handleImmediate;
 
+        #if !tracker_manual_flush
+        if (!flushingImmediateCallbacks) {
+            flushImmediate();
+        }
+        #end
+
     }
 
     /** Execute and flush every awaiting immediate callback, including the ones that
         could have been added with `onceImmediate()` after executing the existing callbacks. */
-    function flushImmediate():Bool {
+    #if tracker_manual_flush public #end function flushImmediate():Bool {
 
+        flushingImmediateCallbacks = true;
+        
         var didFlush = false;
 
         // Immediate callbacks
@@ -51,6 +61,8 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
             pool.release(callbacks);
 
         }
+
+        flushingImmediateCallbacks = false;
 
         return didFlush;
 
