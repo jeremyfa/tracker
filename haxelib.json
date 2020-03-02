@@ -4,7 +4,7 @@
     "license": "MIT",
     "tags": ["tracker"],
     "description": "A set of tools to manage events, observable and serializable properties, autorunable functions and data models in general.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "releasenote": "Initial working project",
     "contributors": ["jeremyfa"],
     "classPath": "src/",

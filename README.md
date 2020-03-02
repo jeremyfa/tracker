@@ -8,9 +8,9 @@ This is an effort to have an independant haxe library that can also be used outs
 
 ```haxe
 class Main {
-	static function main() {
+    static function main() {
         new Context();
-	}
+    }
 }
 
 class Context extends tracker.Entity {
@@ -18,7 +18,7 @@ class Context extends tracker.Entity {
         super();
         
         // Will print 'My name is Jeremy';
-		var person = new Person();
+        var person = new Person();
 
         // Will print 'My name is John';
         person.name = 'John';
