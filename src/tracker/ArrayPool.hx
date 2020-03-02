@@ -1,5 +1,7 @@
 package tracker;
 
+#if !tracker_custom_array_pool
+
 class ArrayPool {
 
     static var ALLOC_STEP = 10;
@@ -106,3 +108,5 @@ class ArrayPool {
     }
 
 }
+
+#end

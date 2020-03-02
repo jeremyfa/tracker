@@ -1,5 +1,3 @@
 -cp src
 -main tracker.test.Main
 --interp
---macro tracker.macros.TrackerMacro.entity('tracker.Entity')
---macro tracker.macros.TrackerMacro.backend('tracker.DefaultBackend')

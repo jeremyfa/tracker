@@ -1,5 +1,7 @@
 package tracker;
 
+#if !tracker_custom_reusable_array
+
 import haxe.ds.Vector;
 
 /** A reusable array to use in places that need a temporary array many times.
@@ -62,3 +64,5 @@ class ReusableArray<T> {
     }
 
 }
+
+#end

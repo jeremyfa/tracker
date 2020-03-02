@@ -3,7 +3,7 @@ package tracker;
 import tracker.Tracker.backend;
 
 /** Utility to serialize a model object (and its children) continuously and efficiently */
-class SerializeModel extends Entity {
+class SerializeModel extends Entity implements tracker.Component {
 
 /// Events
 
