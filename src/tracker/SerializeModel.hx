@@ -3,7 +3,7 @@ package tracker;
 import tracker.Tracker.backend;
 
 /** Utility to serialize a model object (and its children) continuously and efficiently */
-class SerializeModel extends Entity implements tracker.Component {
+class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #end implements #if tracker_ceramic ceramic.Component #else tracker.Component #end {
 
 /// Events
 

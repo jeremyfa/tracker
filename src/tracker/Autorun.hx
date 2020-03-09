@@ -4,7 +4,7 @@ import tracker.Tracker.backend;
 
 using tracker.Extensions;
 
-class Autorun extends Entity {
+class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Current autorun
 

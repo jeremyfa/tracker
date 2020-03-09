@@ -13,6 +13,8 @@ class TrackerMacro {
 
     static var entityTypeStr:String = null;
 
+    static var definedTypes:Map<String,Bool> = new Map();
+
     macro public function setEntity(type:String) {
 
         if (type != 'tracker.Entity')
@@ -33,7 +35,8 @@ class TrackerMacro {
         entityType = TPath({name: name, params: [], pack: pack});
         entityTypeStr = type;
 
-        if (type != 'tracker.Entity') {
+        if (type != 'tracker.Entity' && !definedTypes.exists(type)) {
+            definedTypes.set(type, true);
             Context.defineType({
                 pack: ['tracker'],
                 name: 'Entity',
@@ -70,21 +73,24 @@ class TrackerMacro {
                 pack = [];
                 name = type;
             }
-
-            Context.defineType({
-                pack: ['tracker'],
-                name: 'Component',
-                pos: Context.currentPos(),
-                meta: [],
-                params: [],
-                fields: [],
-                isExtern: false,
-                kind: TDAlias(TPath({
-                    name: name,
+            
+            if(!definedTypes.exists(type)) {
+                definedTypes.set(type, true);
+                Context.defineType({
+                    pack: ['tracker'],
+                    name: 'Component',
+                    pos: Context.currentPos(),
+                    meta: [],
                     params: [],
-                    pack: pack
-                }))
-            });
+                    fields: [],
+                    isExtern: false,
+                    kind: TDAlias(TPath({
+                        name: name,
+                        params: [],
+                        pack: pack
+                    }))
+                });
+            }
         }
 
         return null;
@@ -108,20 +114,23 @@ class TrackerMacro {
                 name = type;
             }
 
-            Context.defineType({
-                pack: ['tracker'],
-                name: 'Backend',
-                pos: Context.currentPos(),
-                meta: [],
-                params: [],
-                fields: [],
-                isExtern: false,
-                kind: TDAlias(TPath({
-                    name: name,
+            if(!definedTypes.exists(type)) {
+                definedTypes.set(type, true);
+                Context.defineType({
+                    pack: ['tracker'],
+                    name: 'Backend',
+                    pos: Context.currentPos(),
+                    meta: [],
                     params: [],
-                    pack: pack
-                }))
-            });
+                    fields: [],
+                    isExtern: false,
+                    kind: TDAlias(TPath({
+                        name: name,
+                        params: [],
+                        pack: pack
+                    }))
+                });
+            }
         }
 
         return null;
@@ -145,20 +154,23 @@ class TrackerMacro {
                 name = type;
             }
 
-            Context.defineType({
-                pack: ['tracker'],
-                name: 'ArrayPool',
-                pos: Context.currentPos(),
-                meta: [],
-                params: [],
-                fields: [],
-                isExtern: false,
-                kind: TDAlias(TPath({
-                    name: name,
+            if(!definedTypes.exists(type)) {
+                definedTypes.set(type, true);
+                Context.defineType({
+                    pack: ['tracker'],
+                    name: 'ArrayPool',
+                    pos: Context.currentPos(),
+                    meta: [],
                     params: [],
-                    pack: pack
-                }))
-            });
+                    fields: [],
+                    isExtern: false,
+                    kind: TDAlias(TPath({
+                        name: name,
+                        params: [],
+                        pack: pack
+                    }))
+                });
+            }
         }
 
         return null;
@@ -182,22 +194,25 @@ class TrackerMacro {
                 name = type;
             }
 
-            Context.defineType({
-                pack: ['tracker'],
-                name: 'ReusableArray',
-                pos: Context.currentPos(),
-                meta: [],
-                params: [{
-                    name: 'T'
-                }],
-                fields: [],
-                isExtern: false,
-                kind: TDAlias(TPath({
-                    name: name,
-                    params: [TPType(macro :T)],
-                    pack: pack
-                }))
-            });
+            if(!definedTypes.exists(type)) {
+                definedTypes.set(type, true);
+                Context.defineType({
+                    pack: ['tracker'],
+                    name: 'ReusableArray',
+                    pos: Context.currentPos(),
+                    meta: [],
+                    params: [{
+                        name: 'T'
+                    }],
+                    fields: [],
+                    isExtern: false,
+                    kind: TDAlias(TPath({
+                        name: name,
+                        params: [TPType(macro :T)],
+                        pack: pack
+                    }))
+                });
+            }
         }
 
         return null;

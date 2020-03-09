@@ -174,9 +174,13 @@ class EventsMacro {
             dynamicDispatch = false;
         }
 
+        #if tracker_ceramic
+        var entityType = macro :ceramic.Entity;
+        #else
         var entityType = TrackerMacro.entityType;
         if (entityType == null)
             entityType = macro :tracker.Entity;
+        #end
 
         switch (field.kind) {
 
@@ -664,7 +668,11 @@ class EventsMacro {
                                     if (this.$cbOnArray != null) len += this.$cbOnArray.length;
                                     if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
                                     if (len > 0) {
+                                        #if tracker_ceramic
+                                        var pool = ceramic.ArrayPool.pool(len);
+                                        #else
                                         var pool = tracker.ArrayPool.pool(len);
+                                        #end
                                         var callbacks = pool.get();
                                         #if tracker_debug_events
                                         var callbacksPos = [];
@@ -720,7 +728,7 @@ class EventsMacro {
                             kind: FFun({
                                 args: [{
                                     name: '_cbsArray',
-                                    type: macro :tracker.ReusableArray<Dynamic>
+                                    type: #if tracker_ceramic macro :ceramic.ReusableArray<Dynamic> #else macro :tracker.ReusableArray<Dynamic> #end
                                 }, {
                                     name: '_cbsLen',
                                     type: macro :Int
@@ -759,7 +767,11 @@ class EventsMacro {
                                     if (this.$cbOnArray != null) len += this.$cbOnArray.length;
                                     if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
                                     if (len > 0) {
+                                        #if tracker_ceramic
+                                        var pool = ceramic.ArrayPool.pool(len);
+                                        #else
                                         var pool = tracker.ArrayPool.pool(len);
+                                        #end
                                         var callbacks = pool.get();
                                         #if tracker_debug_events
                                         var callbacksPos = [];

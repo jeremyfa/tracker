@@ -4,7 +4,7 @@ using StringTools;
 
 @:keep
 @:keepSub
-class Model extends Entity implements Observable implements Serializable {
+class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end implements Observable implements Serializable {
 
 /// Events
 

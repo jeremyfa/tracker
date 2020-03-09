@@ -3,6 +3,10 @@ package tracker;
 import tracker.Tracker.backend;
 import haxe.rtti.Meta;
 
+#if tracker_ceramic
+import ceramic.Entity;
+#end
+
 using StringTools;
 
 @:allow(tracker.SerializeModel)
