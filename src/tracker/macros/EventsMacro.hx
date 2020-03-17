@@ -23,9 +23,13 @@ class EventsMacro {
         var localClass = Context.getLocalClass().get();
 
         // Get entity type
+        #if tracker_ceramic
+        var entityTypeStr = 'ceramic.Entity';
+        #else
         var entityTypeStr = TrackerMacro.entityTypeStr;
         if (entityTypeStr == null)
             entityTypeStr = 'tracker.Entity';
+        #end
 
         // Get next event index for this class path
         var classPath = localClass.pack != null && localClass.pack.length > 0 ? localClass.pack.join('.') + '.' + localClass.name : localClass.name;

@@ -35,9 +35,13 @@ class SerializableMacro {
         }
 
         // Get entity type
+        #if tracker_ceramic
+        var entityTypeStr = 'ceramic.Entity';
+        #else
         var entityTypeStr = TrackerMacro.entityTypeStr;
         if (entityTypeStr == null)
             entityTypeStr = 'tracker.Entity';
+        #end
 
         // Also check parent fields
         var inheritsFromEntity = (classPath == entityTypeStr);
