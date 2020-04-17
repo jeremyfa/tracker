@@ -28,11 +28,19 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Lifecycle
 
-    public function new(onRun:Void->Void #if tracker_debug_entity_allocs , ?pos:haxe.PosInfos #end) {
+    /**
+     * Initialize a new autorun.
+     * @param onRun The callback that will be executed and used to compute implicit bindings
+     * @param afterRun
+     *     (optional) A callback run right after `onRun`, not affecting implicit bindings.
+     *     Useful when generating side effects without messing up binding dependencies.
+     */
+    public function new(onRun:Void->Void, ?afterRun:Void->Void #if tracker_debug_entity_allocs , ?pos:haxe.PosInfos #end) {
 
         super(#if tracker_debug_entity_allocs pos #end);
 
         this.onRun = onRun;
+        this.afterRun = afterRun;
 
         // Run once to create initial binding and execute callback
         if (onRun != null) {
@@ -80,7 +88,9 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         // Run (and bind) again
         onRun();
         if (afterRun != null) {
+            unobserve();
             afterRun();
+            reobserve();
         }
 
         // Restore previous current autorun

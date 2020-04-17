@@ -252,7 +252,7 @@ class Entity implements Events {
     /** Creates a new `Autorun` instance with the given callback associated with the current entity.
         @param run The run callback
         @return The autorun instance */
-    public function autorun(run:Void->Void #if (tracker_debug_autorun || tracker_debug_entity_allocs) , ?pos:haxe.PosInfos #end):Autorun {
+    public function autorun(run:Void->Void, ?afterRun:Void->Void #if (tracker_debug_autorun || tracker_debug_entity_allocs) , ?pos:haxe.PosInfos #end):Autorun {
 
         if (destroyed) return null;
 
@@ -266,7 +266,7 @@ class Entity implements Events {
         }
 #end
 
-        var _autorun = new Autorun(run #if tracker_debug_entity_allocs , pos #end);
+        var _autorun = new Autorun(run, afterRun #if tracker_debug_entity_allocs , pos #end);
         run = null;
 
         if (autoruns == null) {
