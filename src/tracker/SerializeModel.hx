@@ -188,7 +188,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
 
     }
 
-    /** Synchronize at regular interval */
+    /** Synchronize (expected to be called at regular intervals or when something important needs to be serialized) */
     public function synchronize() {
 
         if (!dirty) return;
@@ -265,6 +265,57 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         Serialize._onAddSerializable = null;
         Serialize._serializedMap = null;
 
+    }
+
+    public static function loadFromData(model:Model, data:String, hotReload:Bool = false):Bool {
+
+        if (data == null) {
+            // No data, stop here
+            return false;
+        }
+
+        // Serialize previous data to compare it with new one
+        Serialize._serializedMap = new Map();
+        Serialize._deserializedMap = new Map();
+        Serialize._deserializedCacheMap = null;
+
+        Serialize.serializeValue(model);
+
+        var prevDeserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
+        Serialize._serializedMap = null;
+        Serialize._deserializedMap = null;
+        Serialize._deserializedCacheMap = null;
+
+        // Decode new data
+        var decoded = Utils.decodeChangesetData(data);
+
+        // Then deserialize it
+        Serialize._serializedMap = decoded.serializedMap;
+        Serialize._deserializedMap = new Map();
+        Serialize._deserializedCacheMap = hotReload ? prevDeserializedMap : null;
+
+        Serialize.deserializeValue(decoded.serialized, model);
+
+        var deserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
+        Serialize._deserializedMap = null;
+        Serialize._serializedMap = null;
+        Serialize._deserializedCacheMap = null;
+
+        // Destroy previous model objects not used anymore (if any)
+        // Use previous serialized map to perform the change
+        for (k => item in prevDeserializedMap) {
+            if (deserializedMap.get(k) != item) {
+                if (Std.is(item, Model)) {
+                    var _model:Model = cast item;
+                    if (_model != model) {
+                        _model.destroy();
+                    }
+                }
+            }
+        }
+
+        return true;
+        
     }
 
 }

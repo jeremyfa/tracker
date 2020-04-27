@@ -97,4 +97,74 @@ class Utils {
 
     }
 
+    public static function encodeChangesetData(data:String):String {
+
+        return data.length + ':' + data;
+
+    }
+
+    public static function decodeChangesetData(rawData:String) {
+
+        var serializedMap:Map<String,{ id:String, type:String, props:Dynamic }> = new Map();
+        var rootInfo = null;
+
+        // Reload an array of all changesets
+        var changesetData:Array<String> = [];
+
+        // TODO handle corrupted saves?
+
+        while (true) {
+            var colonIndex = rawData.indexOf(':');
+            if (colonIndex == -1) break;
+
+            var len = Std.parseInt(rawData.substr(0, colonIndex));
+            var dataPart:String = rawData.substr(colonIndex + 1, len);
+            changesetData.push(dataPart);
+
+            rawData = rawData.substr(colonIndex + 1 + len);
+        }
+
+        // Reconstruct the mapping
+        var i = changesetData.length - 1;
+        while (i >= 0) {
+            var data = changesetData[i];
+
+            if (i == 0) {
+                var u = new haxe.Unserializer(data);
+
+                // Get root object info
+                rootInfo = u.unserialize();
+
+                // Update serialized map
+                var changesetSerializedMap:Map<String,{ id:String, type:String, props:Dynamic }> = u.unserialize();
+                for (item in changesetSerializedMap) {
+                    var id = item.id;
+                    if (!serializedMap.exists(id)) {
+                        serializedMap.set(id, item);
+                    }
+                }
+            }
+            else {
+                var u = new haxe.Unserializer(data);
+
+                // Update serialized map
+                var toAppend:Array<{ id:String, type:String, props:Dynamic }> = u.unserialize();
+                for (item in toAppend) {
+                    var id = item.id;
+                    if (!serializedMap.exists(id)) {
+                        serializedMap.set(id, item);
+                    }
+                }
+            }
+
+            i--;
+        }
+
+        return {
+            serialized: rootInfo,
+            serializedMap: serializedMap
+        };
+
+    }
+
 }

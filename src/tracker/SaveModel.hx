@@ -66,71 +66,23 @@ class SaveModel {
             }
         }
 
-        return loadFromData(model, data);
+        return SerializeModel.loadFromData(model, data);
 
     }
-
-    public static function loadFromData(model:Model, data:String):Bool {
-
-        if (data == null) {
-            // No data, stop here
-            return false;
-        }
-
-        // Serialize previous data to compare it with new one
-        Serialize._serializedMap = new Map();
-        Serialize._deserializedMap = new Map();
-
-        Serialize.serializeValue(model);
-
-        var prevDeserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
-        Serialize._serializedMap = null;
-        Serialize._deserializedMap = null;
-
-        // Decode new data
-        var decoded = decodeData(data);
-
-        // Then deserialize it
-        Serialize._serializedMap = decoded.serializedMap;
-        Serialize._deserializedMap = new Map();
-
-        Serialize.deserializeValue(decoded.serialized, model);
-
-        var deserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
-        Serialize._deserializedMap = null;
-        Serialize._serializedMap = null;
-
-        // Destroy previous model objects not used anymore (if any)
-        // Use previous serialized map to perform the change
-        for (k in prevDeserializedMap.keys()) {
-            if (!deserializedMap.exists(k)) {
-                var item = prevDeserializedMap.get(k);
-                if (Std.is(item, Model)) {
-                    var _model:Model = cast item;
-                    if (_model != model) {
-                        _model.destroy();
-                    }
-                }
-            }
-        }
-
-        return true;
-
-    }
-
     public static function autoSaveAsKey(model:Model, key:String, appendInterval:Float = 1.0, compactInterval:Float = 60.0) {
 
         // Init backup logic if needed
         initBackupLogicIfNeeded(key);
 
-        if (model.serializer != null) {
-            model.serializer.destroy();
-            model.serializer = null;
+        var serializer = model.serializer;
+        if (serializer == null) {
+            serializer = new SerializeModel();
+            serializer.checkInterval = appendInterval;
+            serializer.compactInterval = compactInterval;
         }
-
-        var serializer = new SerializeModel();
-        serializer.checkInterval = appendInterval;
-        serializer.compactInterval = compactInterval;
+        else if (serializer.checkInterval != appendInterval || serializer.compactInterval != compactInterval) {
+            backend.warning('A serializer is already assigned with different appendInterval and compactInterval');
+        }
 
         var saveDataKey1 = 'save_data_1_' + key;
         var saveDataKey2 = 'save_data_2_' + key;
@@ -159,14 +111,14 @@ class SaveModel {
                         // wrong, there should always be a save file to fall back on.
                         
                         // Append first file
-                        backend.appendString(saveDataKey1, data.length + ':' + data);
+                        backend.appendString(saveDataKey1, Utils.encodeChangesetData(data));
                         // Mark this first file as the valid one on first id key
                         backend.saveString(saveIdKey1, '1');
                         // Mark this first file as the valid one on second id key
                         backend.saveString(saveIdKey2, '1');
 
                         // Append second file
-                        backend.appendString(saveDataKey2, data.length + ':' + data);
+                        backend.appendString(saveDataKey2, Utils.encodeChangesetData(data));
                         // Mark this second file as the valid one on first id key
                         backend.saveString(saveIdKey1, '2');
                         // Mark this second file as the valid one on second id key
@@ -205,14 +157,14 @@ class SaveModel {
                         // wrong, there should always be a save file to fall back on.
 
                         // Save first file
-                        backend.saveString(saveDataKey1, data.length + ':' + data);
+                        backend.saveString(saveDataKey1, Utils.encodeChangesetData(data));
                         // Mark this first file as the valid one on first id key
                         backend.saveString(saveIdKey1, '1');
                         // Mark this first file as the valid one on second id key
                         backend.saveString(saveIdKey2, '1');
 
                         // Save second file
-                        backend.saveString(saveDataKey2, data.length + ':' + data);
+                        backend.saveString(saveDataKey2, Utils.encodeChangesetData(data));
                         // Mark this second file as the valid one on first id key
                         backend.saveString(saveIdKey1, '2');
                         // Mark this second file as the valid one on second id key
@@ -252,73 +204,18 @@ class SaveModel {
         });
 
         // Assign component
-        model.serializer = serializer;
+        if (model.serializer != serializer) {
+            model.serializer = serializer;
 
-    }
-
-/// Internal
-
-    static function decodeData(rawData:String) {
-
-        var serializedMap:Map<String,{ id:String, type:String, props:Dynamic }> = new Map();
-        var rootInfo = null;
-
-        // Reload an array of all changesets
-        var changesetData:Array<String> = [];
-
-        // TODO handle corrupted saves?
-
-        while (true) {
-            var colonIndex = rawData.indexOf(':');
-            if (colonIndex == -1) break;
-
-            var len = Std.parseInt(rawData.substr(0, colonIndex));
-            var dataPart:String = rawData.substr(colonIndex + 1, len);
-            changesetData.push(dataPart);
-
-            rawData = rawData.substr(colonIndex + 1 + len);
+            #if !tracker_ceramic
+            @:privateAccess serializer.entity = model;
+            @:privateAccess serializer.bindAsComponent();
+            model.onDestroy(serializer, _ -> {
+                serializer.destroy();
+                serializer = null;
+            });
+            #end
         }
-
-        // Reconstruct the mapping
-        var i = changesetData.length - 1;
-        while (i >= 0) {
-            var data = changesetData[i];
-
-            if (i == 0) {
-                var u = new haxe.Unserializer(data);
-
-                // Get root object info
-                rootInfo = u.unserialize();
-
-                // Update serialized map
-                var changesetSerializedMap:Map<String,{ id:String, type:String, props:Dynamic }> = u.unserialize();
-                for (item in changesetSerializedMap) {
-                    var id = item.id;
-                    if (!serializedMap.exists(id)) {
-                        serializedMap.set(id, item);
-                    }
-                }
-            }
-            else {
-                var u = new haxe.Unserializer(data);
-
-                // Update serialized map
-                var toAppend:Array<{ id:String, type:String, props:Dynamic }> = u.unserialize();
-                for (item in toAppend) {
-                    var id = item.id;
-                    if (!serializedMap.exists(id)) {
-                        serializedMap.set(id, item);
-                    }
-                }
-            }
-
-            i--;
-        }
-
-        return {
-            serialized: rootInfo,
-            serializedMap: serializedMap
-        };
 
     }
 

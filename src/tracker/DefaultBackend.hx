@@ -182,6 +182,24 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     }
 
+    /**
+     * Execute a callback after the given delay in seconds.
+     * @param owner The entity that owns this delayed call
+     * @param seconds The time in seconds of delay before the call
+     * @param callback The callback to call
+     * @return Void->Void A callback to cancel the delayed call
+     */
+    public function delay(owner:Entity, seconds:Float, callback:Void->Void):Void->Void {
+
+        var timer = new haxe.Timer(Math.round(seconds * 1000));
+        timer.run = function() {
+            timer.stop();
+            callback();
+        };
+        return timer.stop;
+
+    }
+
     
 
 }

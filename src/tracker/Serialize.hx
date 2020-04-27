@@ -56,6 +56,8 @@ class Serialize {
 
     static var _deserializedMap:Map<String,Serializable> = null;
 
+    static var _deserializedCacheMap:Map<String,Serializable> = null;
+
     static var _onAddSerializable:Serializable->Void = null;
 
     static var _onCheckSerializable:Serializable->Void = null;
@@ -205,7 +207,15 @@ class Serialize {
                 }
 
                 // Create instance (without calling constructor)
-                var instance = serializable != null && Type.getClass(serializable) == clazz ? serializable : Type.createEmptyInstance(clazz);
+                var instance:Serializable = null;
+                var reusingInstance = false;
+                if (_deserializedCacheMap != null && _deserializedCacheMap.exists(value.id)) {
+                    instance = _deserializedCacheMap.get(value.id);
+                    reusingInstance = true;
+                }
+                else {
+                    instance = serializable != null && Type.getClass(serializable) == clazz ? serializable : Type.createEmptyInstance(clazz);
+                }
 
                 Assert.assert(instance != null, 'Created empty instance should not be null');
 
@@ -236,9 +246,9 @@ class Serialize {
                     if (hasSerialize && Reflect.hasField(info.props, fieldName)) {
                         // Value provided by data, use it
                         var val = deserializeValue(Reflect.field(info.props, fieldName));
-                        Extensions.setProperty(instance, fieldRealName, val);
+                        Extensions.setProperty(instance, reusingInstance ? fieldName : fieldRealName, val);
                     }
-                    else if (methods.exists('_default_' + fieldName)) {
+                    else if (!reusingInstance && methods.exists('_default_' + fieldName)) {
                         // No value in data, but a default one for this class, use it
                         var val = Reflect.callMethod(instance, Reflect.field(instance, '_default_' + fieldName), []);
                         Extensions.setProperty(instance, fieldRealName, val);
