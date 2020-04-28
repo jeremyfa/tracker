@@ -18,9 +18,35 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
 
     var ignoreSteps:Int = 0;
 
+    var canScheduleImmediateStep:Bool = true;
+
+    var clearDelayAllowImmediateStep:Void->Void = null;
+
+    /**
+     * If provided, number of available steps will be limited to this value,
+     * meaning older steps will be removed and not recoverable if reaching the limit.
+     * Default is: store as many steps as possible, no limit (except available memory?)
+     */
+    public var maxSteps:Int = -1;
+
     public function new() {
 
         super();
+
+    }
+
+    /**
+     * Manually clear previous steps outside the given limit
+     * @param maxSteps 
+     */
+    public function clearPreviousStepsOutsideLimit(maxSteps:Int) {
+
+        if (maxSteps > 0) {
+            while (currentStep > maxSteps) {
+                steps.shift();
+                currentStep--;
+            }
+        }
 
     }
 
@@ -66,39 +92,45 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
                 currentData.add(Utils.encodeChangesetData(changeset.data));
             }
 
-            // Record one step if pending
-            if (stepPending) {
-                stepPending = false;
-                
-                if (currentData != null) {
-                    while (steps.length - 1 > currentStep) {
-                        steps.pop();
-                    }
-                    steps.push(currentData.toString());
-                }
-                else {
-                    backend.warning('Invalid state: currentData is null when trying to add step!');
-                }
-
-                currentStep = steps.length - 1;
-            }
+            recordStepIfNeeded();
 
         });
 
     }
 
-    public function scheduleStep():Void {
+    function recordStepIfNeeded() {
 
-        if (stepPending || ignoreSteps > 0)
-            return;
+        // Record one step if pending
+        if (stepPending && ignoreSteps <= 0) {
+            stepPending = false;
+            
+            if (currentData != null) {
+                while (steps.length - 1 > currentStep) {
+                    steps.pop();
+                }
+                steps.push(currentData.toString());
+            }
+            else {
+                backend.warning('Invalid state: currentData is null when trying to add step!');
+                return;
+            }
 
-        if (scheduledStep != null)
-            scheduledStep();
+            if (maxSteps > 0) {
+                while (steps.length > maxSteps) {
+                    steps.shift();
+                }
+            }
 
-        scheduledStep = backend.delay(this, 0.5, () -> {
-            scheduledStep = null;
-            step();
-        });
+            currentStep = steps.length - 1;
+
+            if (clearDelayAllowImmediateStep != null) {
+                clearDelayAllowImmediateStep();
+                clearDelayAllowImmediateStep = backend.delay(this, 0.5, () -> {
+                    canScheduleImmediateStep = true;
+                    clearDelayAllowImmediateStep = null;
+                });
+            }
+        }
 
     }
 
@@ -107,13 +139,14 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
      */
     public function step():Void {
 
-        if (stepPending || ignoreSteps > 0)
+        if (stepPending || ignoreSteps > 0) {
             return;
+        }
 
         stepPending = true;
-        backend.delay(this, 0.1, () -> {
-            if (stepPending)
-                entity.serializer.synchronize();
+        backend.delay(this, 0.05, () -> {
+            entity.serializer.synchronize();
+            recordStepIfNeeded();
         });
 
     }
@@ -122,6 +155,10 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
      * Undo last step, if any
      */
     public function undo():Void {
+
+        if (stepPending) {
+            return;
+        }
 
         if (currentStep > 0) {
             currentStep--;
@@ -136,6 +173,10 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
      */
     public function redo():Void {
 
+        if (stepPending) {
+            return;
+        }
+
         if (currentStep < steps.length - 1) {
             currentStep++;
 
@@ -149,6 +190,7 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
         ignoreSteps++;
 
         SerializeModel.loadFromData(entity, steps[currentStep], true);
+        entity.serializer.compact();
 
         backend.delay(this, 0.1, () -> {
             ignoreSteps--;

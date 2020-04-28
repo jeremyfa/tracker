@@ -46,6 +46,16 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
     }
 
+    /**
+     * Called right before the object is destroyed because it is not used anymore.
+     * @return `true` (default) if the destroy should happen or not
+     */
+    function serializeShouldDestroy():Bool {
+
+        return true;
+
+    }
+
 /// Print
 
     override function toString():String {

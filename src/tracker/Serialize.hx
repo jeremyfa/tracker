@@ -1,5 +1,9 @@
 package tracker;
 
+import haxe.ds.Map;
+import haxe.ds.StringMap;
+import haxe.ds.IntMap;
+import haxe.DynamicAccess;
 import tracker.Tracker.backend;
 import haxe.rtti.Meta;
 
@@ -29,8 +33,6 @@ class Serialize {
         var result = s.toString();
 
         _serializedMap = null;
-
-        //trace(result);
 
         return result;
 
@@ -72,7 +74,10 @@ class Serialize {
         // Ensure we don't serialize anything that got destroyed
         if (Std.is(value, Entity)) {
             var entity:Entity = cast value;
-            if (entity.destroyed) return null;
+            if (entity.destroyed) {
+                backend.error('entity destroyed!');
+                return null;
+            }
         }
 
         if (Std.is(value, Serializable)) {
@@ -106,20 +111,27 @@ class Serialize {
             var serializableInstance:Serializable = cast value;
             @:privateAccess serializableInstance.willSerialize();
 
-            var fieldsMeta = Meta.getFields(clazz);
             var prefixLen = 'unobserved'.length;
-            for (fieldRealName in Reflect.fields(fieldsMeta)) {
-                var fieldInfo = Reflect.field(fieldsMeta, fieldRealName);
-
-                if (Reflect.hasField(fieldInfo, 'serialize')) {
-                    var fieldName = fieldRealName;
-                    if (fieldName.startsWith('unobserved')) {
-                        fieldName = fieldName.charAt(prefixLen).toLowerCase() + fieldName.substr(prefixLen + 1);
+            var parentClazz = clazz;
+            while (parentClazz != null) {
+                var fieldsMeta = Meta.getFields(parentClazz);
+                for (fieldRealName in Reflect.fields(fieldsMeta)) {
+                    var fieldInfo = Reflect.field(fieldsMeta, fieldRealName);
+    
+                    if (Reflect.hasField(fieldInfo, 'serialize')) {
+                        var fieldName = fieldRealName;
+                        if (fieldName.startsWith('unobserved')) {
+                            fieldName = fieldName.charAt(prefixLen).toLowerCase() + fieldName.substr(prefixLen + 1);
+                        }
+    
+                        var originalValue = Extensions.getProperty(value, fieldRealName);
+                        var val = serializeValue(originalValue);
+                        Reflect.setField(result.props, fieldName, val);
                     }
-
-                    var val = serializeValue(Extensions.getProperty(value, fieldRealName));
-                    Reflect.setField(result.props, fieldName, val);
                 }
+                parentClazz = Type.getSuperClass(parentClazz);
+                if (parentClazz != null && Type.getClassName(parentClazz) == 'tracker.Model')
+                    break;
             }
 
             if (_onAddSerializable != null) {
@@ -148,18 +160,50 @@ class Serialize {
         }
         else {
 
-            if (customHxSerialize != null) {
-                return { hx : customHxSerialize(value) };
+            switch (Type.typeof(value)) {
+                case null:
+                default:
+                case TClass(c):
+                    switch (#if (neko || cs || python) Type.getClassName(c) #else c #end) {
+                        case null:
+                        default:
+                        case #if (neko || cs || python) "haxe.ds.StringMap" #else cast StringMap #end:
+                            var values:Array<Dynamic> = [];
+                            var result:Dynamic = {
+                                sm: values
+                            };
+                            var mapValue:StringMap<Dynamic> = value;
+                            for (key in mapValue.keys()) {
+                                values.push(key);
+                                values.push(serializeValue(mapValue.get(key)));
+                            }
+                            return result;
+                        case #if (neko || cs || python) "haxe.ds.IntMap" #else cast IntMap #end:
+                            var values:Array<Dynamic> = [];
+                            var result:Dynamic = {
+                                im: values
+                            };
+                            var mapValue:IntMap<Dynamic> = value;
+                            for (key in mapValue.keys()) {
+                                values.push(key);
+                                values.push(serializeValue(mapValue.get(key)));
+                            }
+                            return result;
+                    }
             }
-            else {
-                // Use Haxe's built in serializer as a fallback
-                var serializer = new haxe.Serializer();
-                serializer.useCache = true;
-                serializer.serialize(value);
+        }
 
-                return { hx: serializer.toString() };
-            }
+        // If nothing else worked, fallback to regular haxe serialization
+        if (customHxSerialize != null) {
+            return { hx : customHxSerialize(value) };
+        }
+        else {
+            // Use Haxe's built in serializer as a fallback
+            var serializer = new haxe.Serializer();
+            serializer.useCache = true;
+            serializer.serialize(value);
 
+            return { hx: serializer.toString() };
         }
 
     }
@@ -228,14 +272,35 @@ class Serialize {
                 //
                 var fieldsMeta = Meta.getFields(clazz);
                 var prefixLen = 'unobserved'.length;
-                var methods = new Map<String,Bool>();
-                for (method in Type.getInstanceFields(clazz)) {
-                    methods.set(method, true);
+                var instanceFields = new Map<String,Bool>();
+                for (field in Type.getInstanceFields(clazz)) {
+                    instanceFields.set(field, true);
+                }
+                var parentClazz = Type.getSuperClass(clazz);
+                var parentFieldsMeta = null;
+                while (parentClazz != null) {
+                    if (parentFieldsMeta == null)
+                        parentFieldsMeta = [];
+                    parentFieldsMeta.push(Meta.getFields(parentClazz));
+                    if (Type.getClassName(parentClazz) == 'tracker.Model') {
+                        break;
+                    }
+                    for (field in Type.getInstanceFields(parentClazz)) {
+                        instanceFields.set(field, true);
+                    }
+                    parentClazz = Type.getSuperClass(parentClazz);
                 }
 
-                for (fieldRealName in Type.getInstanceFields(clazz)) {
+                for (fieldRealName in instanceFields.keys()) {
 
                     var fieldInfo = Reflect.field(fieldsMeta, fieldRealName);
+                    if (fieldInfo == null && parentFieldsMeta != null) {
+                        for (i in 0...parentFieldsMeta.length) {
+                            fieldInfo = Reflect.field(parentFieldsMeta[i], fieldRealName);
+                            if (fieldInfo != null)
+                                break;
+                        }
+                    }
                     var hasSerialize = fieldInfo != null && Reflect.hasField(fieldInfo, 'serialize');
 
                     var fieldName = fieldRealName;
@@ -248,7 +313,7 @@ class Serialize {
                         var val = deserializeValue(Reflect.field(info.props, fieldName));
                         Extensions.setProperty(instance, reusingInstance ? fieldName : fieldRealName, val);
                     }
-                    else if (!reusingInstance && methods.exists('_default_' + fieldName)) {
+                    else if (!reusingInstance && instanceFields.exists('_default_' + fieldName)) {
                         // No value in data, but a default one for this class, use it
                         var val = Reflect.callMethod(instance, Reflect.field(instance, '_default_' + fieldName), []);
                         Extensions.setProperty(instance, fieldRealName, val);
@@ -263,6 +328,32 @@ class Serialize {
             else {
                 return null;
             }
+
+        }
+        else if (value.sm != null) {
+
+            var values:Array<Dynamic> = value.sm;
+            var i = 0;
+            var result = new StringMap();
+            while (i < values.length) {
+                result.set(values[i], deserializeValue(values[i+1]));
+                i += 2;
+            }
+            
+            return result;
+
+        }
+        else if (value.im != null) {
+
+            var values:Array<Dynamic> = value.im;
+            var i = 0;
+            var result = new IntMap();
+            while (i < values.length) {
+                result.set(values[i], deserializeValue(values[i+1]));
+                i += 2;
+            }
+            
+            return result;
 
         }
         else if (value.hx != null) {

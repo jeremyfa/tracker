@@ -308,7 +308,9 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
                 if (Std.is(item, Model)) {
                     var _model:Model = cast item;
                     if (_model != model) {
-                        _model.destroy();
+                        if (@:privateAccess _model.serializeShouldDestroy()) {
+                            _model.destroy();
+                        }
                     }
                 }
             }
