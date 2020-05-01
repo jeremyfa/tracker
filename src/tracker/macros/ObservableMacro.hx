@@ -482,11 +482,19 @@ class ObservableMacro {
             pos: field.pos,
             name: fieldNameAutoruns,
             kind: FVar(TPath({
-                name: 'Array',
+                name: 'Null',
                 pack: [],
                 params: [
                     TPType(
-                        macro :tracker.Autorun
+                        TPath({
+                            name: 'Array',
+                            pack: [],
+                            params: [
+                                TPType(
+                                    macro :tracker.Autorun
+                                )
+                            ]
+                        })
                     )
                 ]
             }), macro null),
@@ -505,10 +513,17 @@ class ObservableMacro {
                     // inside an Autorun call
                     if (tracker.Autorun.current != null) {
                         var autorun = tracker.Autorun.current;
-                        if (this.$fieldNameAutoruns == null) {
-                            this.$fieldNameAutoruns = tracker.Autorun.getAutorunArray();
+                        var autorunArray = this.$fieldNameAutoruns;
+                        if (autorunArray == null) {
+                            autorunArray = tracker.Autorun.getAutorunArray();
+                            this.$fieldNameAutoruns = autorunArray;
+                            if (autorunArray != null) {
+                                autorun.bindToAutorunArray(autorunArray);
+                            }
                         }
-                        autorun.bindToAutorunArray(this.$fieldNameAutoruns);
+                        else {
+                            autorun.bindToAutorunArray(autorunArray);
+                        }
                     }
 
                     return this.$unobservedFieldName;
@@ -544,8 +559,8 @@ class ObservableMacro {
                     }
                     this.$emitFieldNameChange($i{fieldName}, prevValue);
                     
-                    if (this.$fieldNameAutoruns != null) {
-                        var fieldAutoruns = this.$fieldNameAutoruns;
+                    var fieldAutoruns = this.$fieldNameAutoruns;
+                    if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
 
                         for (i in 0...fieldAutoruns.length) {
@@ -581,8 +596,8 @@ class ObservableMacro {
                     var value = this.$unobservedFieldName;
                     this.$emitFieldNameChange(value, value);
                     
-                    if (this.$fieldNameAutoruns != null) {
-                        var fieldAutoruns = this.$fieldNameAutoruns;
+                    var fieldAutoruns = this.$fieldNameAutoruns;
+                    if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
 
                         for (i in 0...fieldAutoruns.length) {

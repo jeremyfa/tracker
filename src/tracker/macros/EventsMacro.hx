@@ -254,11 +254,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOnArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    handlerType
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                handlerType
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -277,11 +285,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOnceArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    handlerType
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                handlerType
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -302,11 +318,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOnPosArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    macro :haxe.PosInfos
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                macro :haxe.PosInfos
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -325,11 +349,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOncePosArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    macro :haxe.PosInfos
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                macro :haxe.PosInfos
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -349,11 +381,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOnOwnerUnbindArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    macro :Void->Void
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                macro :Void->Void
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -372,11 +412,19 @@ class EventsMacro {
                         pos: field.pos,
                         name: cbOnceOwnerUnbindArray,
                         kind: FVar(TPath({
-                            name: 'Array',
+                            name: 'Null',
                             pack: [],
                             params: [
                                 TPType(
-                                    macro :Void->Void
+                                    TPath({
+                                        name: 'Array',
+                                        pack: [],
+                                        params: [
+                                            TPType(
+                                                macro :Void->Void
+                                            )
+                                        ]
+                                    })
                                 )
                             ]
                         })),
@@ -766,50 +814,52 @@ class EventsMacro {
                                 ret: macro :Void,
 #if (!display && !completion)
                                 expr: macro {
-                                    $willEmit;
-                                    var len = 0;
-                                    if (this.$cbOnArray != null) len += this.$cbOnArray.length;
-                                    if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
-                                    if (len > 0) {
-                                        #if tracker_ceramic
-                                        var pool = ceramic.ArrayPool.pool(len);
-                                        #else
-                                        var pool = tracker.ArrayPool.pool(len);
-                                        #end
-                                        var callbacks = pool.get();
-                                        #if tracker_debug_events
-                                        var callbacksPos = [];
-                                        #end
-                                        var i = 0;
-                                        if (this.$cbOnArray != null) {
-                                            for (ii in 0...this.$cbOnArray.length) {
-                                                #if tracker_debug_events
-                                                callbacksPos.push(this.$cbOnPosArray[ii]);
-                                                #end
-                                                callbacks.set(i, this.$cbOnArray[ii]);
-                                                i++;
+                                    @:nullSafety(Off) {
+                                        $willEmit;
+                                        var len = 0;
+                                        if (this.$cbOnArray != null) len += this.$cbOnArray.length;
+                                        if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
+                                        if (len > 0) {
+                                            #if tracker_ceramic
+                                            var pool = ceramic.ArrayPool.pool(len);
+                                            #else
+                                            var pool = tracker.ArrayPool.pool(len);
+                                            #end
+                                            var callbacks = pool.get();
+                                            #if tracker_debug_events
+                                            var callbacksPos = [];
+                                            #end
+                                            var i = 0;
+                                            if (this.$cbOnArray != null) {
+                                                for (ii in 0...this.$cbOnArray.length) {
+                                                    #if tracker_debug_events
+                                                    callbacksPos.push(this.$cbOnPosArray[ii]);
+                                                    #end
+                                                    callbacks.set(i, this.$cbOnArray[ii]);
+                                                    i++;
+                                                }
                                             }
-                                        }
-                                        if (this.$cbOnceArray != null) {
-                                            for (ii in 0...this.$cbOnceArray.length) {
-                                                #if tracker_debug_events
-                                                callbacksPos.push(this.$cbOncePosArray[ii]);
-                                                #end
-                                                callbacks.set(i, this.$cbOnceArray[ii]);
-                                                var unbind = this.$cbOnceOwnerUnbindArray[ii];
-                                                if (unbind != null) unbind();
-                                                i++;
+                                            if (this.$cbOnceArray != null) {
+                                                for (ii in 0...this.$cbOnceArray.length) {
+                                                    #if tracker_debug_events
+                                                    callbacksPos.push(this.$cbOncePosArray[ii]);
+                                                    #end
+                                                    callbacks.set(i, this.$cbOnceArray[ii]);
+                                                    var unbind = this.$cbOnceOwnerUnbindArray[ii];
+                                                    if (unbind != null) unbind();
+                                                    i++;
+                                                }
+                                                this.$cbOnceArray = null;
                                             }
-                                            this.$cbOnceArray = null;
+                                            for (i in 0...len) {
+                                                var cb = callbacks.get(i);
+                                                cb($a{handlerCallArgs});
+                                            }
+                                            pool.release(callbacks);
+                                            callbacks = null;
                                         }
-                                        for (i in 0...len) {
-                                            var cb = callbacks.get(i);
-                                            cb($a{handlerCallArgs});
-                                        }
-                                        pool.release(callbacks);
-                                        callbacks = null;
+                                        $didEmit;
                                     }
-                                    $didEmit;
                                 }
 #else
                                 expr: macro {}
@@ -834,7 +884,13 @@ class EventsMacro {
                             args: [
                                 {
                                     name: 'owner',
-                                    type: entityType,
+                                    type: TPath({
+                                        name: 'Null',
+                                        pack: [],
+                                        params: [
+                                            TPType(entityType)
+                                        ]
+                                    }),
                                     opt: #if tracker_optional_owner true #else false #end
                                 },
                                 {
@@ -852,51 +908,53 @@ class EventsMacro {
                             ret: macro :Void,
 #if (!display && !completion)
                             expr: macro {
-                                $willListen;
-                                // Map owner to handler
-                                if (owner != null) {
-                                    if (owner.destroyed) {
-                                        throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
-                                    }
-                                    var destroyCb;//:tracker.Entity->Void;
-                                    destroyCb = function(_) {
-                                        if ($i{handlerName} != null) {
-                                            this.$offName($i{handlerName});
+                                @:nullSafety(Off) {
+                                    $willListen;
+                                    // Map owner to handler
+                                    if (owner != null) {
+                                        if (owner.destroyed) {
+                                            throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
+                                        }
+                                        var destroyCb;//:tracker.Entity->Void;
+                                        destroyCb = function(_) {
+                                            if ($i{handlerName} != null) {
+                                                this.$offName($i{handlerName});
+                                                $i{handlerName} = null;
+                                            }
+                                            owner = null;
+                                            destroyCb = null;
+                                        };
+                                        owner.onceDestroy(null, destroyCb);
+                                        if (this.$cbOnOwnerUnbindArray == null) {
+                                            this.$cbOnOwnerUnbindArray = [];
+                                        }
+                                        this.$cbOnOwnerUnbindArray.push(function() {
+                                            if (owner != null && destroyCb != null) {
+                                                owner.offDestroy(destroyCb);
+                                            }
+                                            owner = null;
+                                            destroyCb = null;
                                             $i{handlerName} = null;
+                                        });
+                                    } else {
+                                        if (this.$cbOnOwnerUnbindArray == null) {
+                                            this.$cbOnOwnerUnbindArray = [];
                                         }
-                                        owner = null;
-                                        destroyCb = null;
-                                    };
-                                    owner.onceDestroy(null, destroyCb);
-                                    if (this.$cbOnOwnerUnbindArray == null) {
-                                        this.$cbOnOwnerUnbindArray = [];
+                                        this.$cbOnOwnerUnbindArray.push(null);
                                     }
-                                    this.$cbOnOwnerUnbindArray.push(function() {
-                                        if (owner != null && destroyCb != null) {
-                                            owner.offDestroy(destroyCb);
-                                        }
-                                        owner = null;
-                                        destroyCb = null;
-                                        $i{handlerName} = null;
-                                    });
-                                } else {
-                                    if (this.$cbOnOwnerUnbindArray == null) {
-                                        this.$cbOnOwnerUnbindArray = [];
+    
+                                    // Add handler
+                                    #if tracker_debug_events
+                                    if (this.$cbOnPosArray == null) {
+                                        this.$cbOnPosArray = [];
                                     }
-                                    this.$cbOnOwnerUnbindArray.push(null);
+                                    this.$cbOnPosArray.push(pos);
+                                    #end
+                                    if (this.$cbOnArray == null) {
+                                        this.$cbOnArray = [];
+                                    }
+                                    this.$cbOnArray.push($i{handlerName});
                                 }
-
-                                // Add handler
-                                #if tracker_debug_events
-                                if (this.$cbOnPosArray == null) {
-                                    this.$cbOnPosArray = [];
-                                }
-                                this.$cbOnPosArray.push(pos);
-                                #end
-                                if (this.$cbOnArray == null) {
-                                    this.$cbOnArray = [];
-                                }
-                                this.$cbOnArray.push($i{handlerName});
                             }
 #else
                             expr: macro {}
@@ -916,7 +974,13 @@ class EventsMacro {
                             args: [
                                 {
                                     name: 'owner',
-                                    type: entityType,
+                                    type: TPath({
+                                        name: 'Null',
+                                        pack: [],
+                                        params: [
+                                            TPType(entityType)
+                                        ]
+                                    }),
                                     opt: #if tracker_optional_owner true #else false #end
                                 },
                                 {
@@ -934,51 +998,53 @@ class EventsMacro {
                             ret: macro :Void,
 #if (!display && !completion)
                             expr: macro {
-                                $willListen;
-                                // Map owner to handler
-                                if (owner != null) {
-                                    if (owner.destroyed) {
-                                        throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
-                                    }
-                                    var destroyCb;//:tracker.Entity->Void;
-                                    destroyCb = function(_) {
-                                        if ($i{handlerName} != null) {
-                                            this.$offName($i{handlerName});
+                                @:nullSafety(Off) {
+                                    $willListen;
+                                    // Map owner to handler
+                                    if (owner != null) {
+                                        if (owner.destroyed) {
+                                            throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
+                                        }
+                                        var destroyCb;//:tracker.Entity->Void;
+                                        destroyCb = function(_) {
+                                            if ($i{handlerName} != null) {
+                                                this.$offName($i{handlerName});
+                                                $i{handlerName} = null;
+                                            }
+                                            owner = null;
+                                            destroyCb = null;
+                                        };
+                                        owner.onceDestroy(null, destroyCb);
+                                        if (this.$cbOnceOwnerUnbindArray == null) {
+                                            this.$cbOnceOwnerUnbindArray = [];
+                                        }
+                                        this.$cbOnceOwnerUnbindArray.push(function() {
+                                            if (owner != null && destroyCb != null) {
+                                                owner.offDestroy(destroyCb);
+                                            }
+                                            owner = null;
+                                            destroyCb = null;
                                             $i{handlerName} = null;
+                                        });
+                                    } else {
+                                        if (this.$cbOnceOwnerUnbindArray == null) {
+                                            this.$cbOnceOwnerUnbindArray = [];
                                         }
-                                        owner = null;
-                                        destroyCb = null;
-                                    };
-                                    owner.onceDestroy(null, destroyCb);
-                                    if (this.$cbOnceOwnerUnbindArray == null) {
-                                        this.$cbOnceOwnerUnbindArray = [];
+                                        this.$cbOnceOwnerUnbindArray.push(null);
                                     }
-                                    this.$cbOnceOwnerUnbindArray.push(function() {
-                                        if (owner != null && destroyCb != null) {
-                                            owner.offDestroy(destroyCb);
-                                        }
-                                        owner = null;
-                                        destroyCb = null;
-                                        $i{handlerName} = null;
-                                    });
-                                } else {
-                                    if (this.$cbOnceOwnerUnbindArray == null) {
-                                        this.$cbOnceOwnerUnbindArray = [];
+    
+                                    // Add handler
+                                    #if tracker_debug_events
+                                    if (this.$cbOncePosArray == null) {
+                                        this.$cbOncePosArray = [];
                                     }
-                                    this.$cbOnceOwnerUnbindArray.push(null);
+                                    this.$cbOncePosArray.push(pos);
+                                    #end
+                                    if (this.$cbOnceArray == null) {
+                                        this.$cbOnceArray = [];
+                                    }
+                                    this.$cbOnceArray.push($i{handlerName});
                                 }
-
-                                // Add handler
-                                #if tracker_debug_events
-                                if (this.$cbOncePosArray == null) {
-                                    this.$cbOncePosArray = [];
-                                }
-                                this.$cbOncePosArray.push(pos);
-                                #end
-                                if (this.$cbOnceArray == null) {
-                                    this.$cbOnceArray = [];
-                                }
-                                this.$cbOnceArray.push($i{handlerName});
                             }
 #else
                             expr: macro {}
@@ -1005,44 +1071,46 @@ class EventsMacro {
                             ret: macro :Void,
 #if (!display && !completion)
                             expr: macro {
-                                if ($i{handlerName} != null) {
-                                    var index:Int;
-                                    var unbind:Void->Void;
-                                    if (this.$cbOnArray != null) {
-                                        index = this.$cbOnArray.indexOf($i{handlerName});
-                                        if (index != -1) {
-                                            this.$cbOnArray.splice(index, 1);
-                                            unbind = this.$cbOnOwnerUnbindArray[index];
-                                            if (unbind != null) unbind();
-                                            this.$cbOnOwnerUnbindArray.splice(index, 1);
+                                @:nullSafety(Off) {
+                                    if ($i{handlerName} != null) {
+                                        var index:Int;
+                                        var unbind:Void->Void;
+                                        if (this.$cbOnArray != null) {
+                                            index = this.$cbOnArray.indexOf($i{handlerName});
+                                            if (index != -1) {
+                                                this.$cbOnArray.splice(index, 1);
+                                                unbind = this.$cbOnOwnerUnbindArray[index];
+                                                if (unbind != null) unbind();
+                                                this.$cbOnOwnerUnbindArray.splice(index, 1);
+                                            }
                                         }
-                                    }
-                                    if (this.$cbOnceArray != null) {
-                                        index = this.$cbOnceArray.indexOf($i{handlerName});
-                                        if (index != -1) {
-                                            this.$cbOnceArray.splice(index, 1);
-                                            unbind = this.$cbOnceOwnerUnbindArray[index];
-                                            if (unbind != null) unbind();
-                                            this.$cbOnceOwnerUnbindArray.splice(index, 1);
+                                        if (this.$cbOnceArray != null) {
+                                            index = this.$cbOnceArray.indexOf($i{handlerName});
+                                            if (index != -1) {
+                                                this.$cbOnceArray.splice(index, 1);
+                                                unbind = this.$cbOnceOwnerUnbindArray[index];
+                                                if (unbind != null) unbind();
+                                                this.$cbOnceOwnerUnbindArray.splice(index, 1);
+                                            }
                                         }
-                                    }
-                                } else {
-                                    if (this.$cbOnOwnerUnbindArray != null) {
-                                        for (i in 0...this.$cbOnOwnerUnbindArray.length) {
-                                            var unbind = this.$cbOnOwnerUnbindArray[i];
-                                            if (unbind != null) unbind();
+                                    } else {
+                                        if (this.$cbOnOwnerUnbindArray != null) {
+                                            for (i in 0...this.$cbOnOwnerUnbindArray.length) {
+                                                var unbind = this.$cbOnOwnerUnbindArray[i];
+                                                if (unbind != null) unbind();
+                                            }
+                                            this.$cbOnOwnerUnbindArray = null;
                                         }
-                                        this.$cbOnOwnerUnbindArray = null;
-                                    }
-                                    if (this.$cbOnceOwnerUnbindArray != null) {
-                                        for (i in 0...this.$cbOnceOwnerUnbindArray.length) {
-                                            var unbind = this.$cbOnceOwnerUnbindArray[i];
-                                            if (unbind != null) unbind();
+                                        if (this.$cbOnceOwnerUnbindArray != null) {
+                                            for (i in 0...this.$cbOnceOwnerUnbindArray.length) {
+                                                var unbind = this.$cbOnceOwnerUnbindArray[i];
+                                                if (unbind != null) unbind();
+                                            }
+                                            this.$cbOnceOwnerUnbindArray = null;
                                         }
-                                        this.$cbOnceOwnerUnbindArray = null;
+                                        this.$cbOnArray = null;
+                                        this.$cbOnceArray = null;
                                     }
-                                    this.$cbOnArray = null;
-                                    this.$cbOnceArray = null;
                                 }
                             }
 #else
@@ -1064,8 +1132,8 @@ class EventsMacro {
                             ret: macro :Bool,
 #if (!display && !completion)
                             expr: macro {
-                                return (this.$cbOnArray != null && this.$cbOnArray.length > 0)
-                                    || (this.$cbOnceArray != null && this.$cbOnceArray.length > 0);
+                                return @:nullSafety(Off) ((this.$cbOnArray != null && this.$cbOnArray.length > 0)
+                                    || (this.$cbOnceArray != null && this.$cbOnceArray.length > 0));
                             }
 #else
                             expr: macro {

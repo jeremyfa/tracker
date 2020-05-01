@@ -1,5 +1,9 @@
 package tracker;
 
+#if tracker_ceramic
+import ceramic.Entity;
+#end
+
 /** Fire and listen to dynamic events. Works similarly to static events, but dynamic.
     If you can know the event names at compile time, using static events (`@event function myEvent();`) is preferred. */
 class DynamicEvents<T> extends Entity {
@@ -64,14 +68,14 @@ class DynamicEvents<T> extends Entity {
 
     }
 
-    public function on(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Entity #end, cb:Dynamic):Void {
+    public function on(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
 
         var index = indexForEvent(event);
         dispatcher.on(index, owner, cb);
 
     }
 
-    public function once(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Entity #end, cb:Dynamic):Void {
+    public function once(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
 
         var index = indexForEvent(event);
         dispatcher.once(index, owner, cb);
