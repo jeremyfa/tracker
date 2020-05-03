@@ -47,7 +47,16 @@ class EntityMacro {
         var componentFields = [];
         var ownFields:Array<String> = null;
 
+        #if (!display && !completion)
+        var hasDestroyOverride = false;
+        #end
         for (field in fields) {
+
+            #if (!display && !completion)
+            if (!hasDestroyOverride && field.name == 'destroy') {
+                hasDestroyOverride = true;
+            }
+            #end
 
             var hasMeta = hasOwnerOrComponentMeta(field);
             if (hasMeta == 1 || hasMeta == 2 || hasMeta == 3) { // has owner or component meta
@@ -61,6 +70,25 @@ class EntityMacro {
                 newFields.push(field);
             }
         }
+
+        #if (!display && !completion)
+        // In some cases, destroy override is a requirement, add it if not there already
+        if (ownFields != null && !hasDestroyOverride) {
+            newFields.push({
+                pos: Context.currentPos(),
+                name: 'destroy',
+                kind: FFun({
+                    args: [],
+                    ret: macro :Void,
+                    expr: macro {
+                        super.destroy();
+                    }
+                }),
+                access: [AOverride],
+                meta: []
+            });
+        }
+        #end
 
         var isProcessed = processed.exists(classPath);
         if (!isProcessed) {
