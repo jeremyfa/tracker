@@ -60,12 +60,26 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
     override function toString():String {
 
+        return '' + _toDynamic(this);
+
+    }
+
+    static var _toDynamicUsed:Array<Dynamic> = null;
+
+    static function _toDynamic(obj:Dynamic):Dynamic {
+
         var prevAutorun = Autorun.current;
         Autorun.current = null;
 
+        var didInitUsed = false;
+        if (_toDynamicUsed == null) {
+            didInitUsed = true;
+            _toDynamicUsed = [];
+        }
+
         var result:Dynamic = {};
 
-        for (key in Reflect.fields(this)) {
+        for (key in Reflect.fields(obj)) {
 
             if (key.startsWith('__')) continue;
 
@@ -74,14 +88,33 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
                 displayKey = displayKey.charAt(10).toLowerCase() + displayKey.substring(11);
             }
 
-            var value = Reflect.field(this, key);
-            Reflect.setField(result, displayKey, value);
+            var value = Reflect.field(obj, key);
+            switch Type.typeof(value) {
+                case TNull | TInt | TFloat | TBool | TFunction | TUnknown | TEnum(_):
+                    Reflect.setField(result, displayKey, value);
+                case TObject | TClass(_):
+                    if (Std.is(value, String)) {
+                        Reflect.setField(result, displayKey, value);
+                    }
+                    else {
+                        if (_toDynamicUsed.indexOf(value) != -1) {
+                            Reflect.setField(result, displayKey, '<...>');
+                        }
+                        else {
+                            _toDynamicUsed.push(value);
+                            Reflect.setField(result, displayKey, _toDynamic(value));
+                        }
+                    }
+            }
+        }
 
+        if (didInitUsed) {
+            _toDynamicUsed = null;
         }
 
         Autorun.current = prevAutorun;
 
-        return '' + result;
+        return result;
 
     }
 
