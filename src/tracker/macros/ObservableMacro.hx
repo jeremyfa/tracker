@@ -175,6 +175,7 @@ class ObservableMacro {
                         var capitalName = sanitizedName.substr(0,1).toUpperCase() + sanitizedName.substr(1);
                         var computeFieldName = 'compute' + capitalName;
                         var fieldComputeAutorunName = 'computeAutorun' + capitalName;
+                        var fieldComputedOnceName = 'computedOnce' + capitalName;
                         var unobservedFieldName = 'unobserved' + capitalName;
 
                         // Get field type
@@ -205,32 +206,48 @@ class ObservableMacro {
                                 ret: type,
                                 expr: macro {
                                     #if (!display && !completion)
-                                    // At first call, initialize autorun to auto-update this property
-                                    if (this.$fieldComputeAutorunName == null) {
-                                        var _that = this;
-                                        var _autorun = new tracker.Autorun(null);
-                                        this.$fieldComputeAutorunName = _autorun;
-                                        _autorun.onRun = function() {
-                                            var result = _that.$computeFieldName();
-                                            tracker.Autorun.unobserve();
-                                            _that.$fieldName = result;
-                                            tracker.Autorun.reobserve();
-                                        };
-                                        _autorun.onDestroy(this, function(_) {
-                                            if (_that.$fieldComputeAutorunName == _autorun) {
-                                                _that.$fieldComputeAutorunName = null;
-                                            }
-                                            _autorun = null;
-                                            _that = null;
-                                        });
-                                        onDestroy(_autorun, function(_) {
-                                            if (_autorun != null) {
-                                                _autorun.destroy();
+                                    if (!destroyed) {
+                                        // At first call, initialize autorun to auto-update this property
+                                        if (this.$fieldComputeAutorunName == null) {
+                                            var _that = this;
+                                            var _autorun = new tracker.Autorun(null);
+                                            this.$fieldComputedOnceName = true;
+                                            this.$fieldComputeAutorunName = _autorun;
+                                            _autorun.onRun = function() {
+                                                var result = _that.$computeFieldName();
+                                                tracker.Autorun.unobserve();
+                                                _that.$fieldName = result;
+                                                tracker.Autorun.reobserve();
+                                            };
+                                            _autorun.onDestroy(this, function(_) {
+                                                if (_that.$fieldComputeAutorunName == _autorun) {
+                                                    _that.$fieldComputeAutorunName = null;
+                                                }
                                                 _autorun = null;
-                                            }
-                                            _that = null;
-                                        });
-                                        _autorun.run();
+                                                _that = null;
+                                            });
+                                            onDestroy(_autorun, function(_) {
+                                                if (_autorun != null) {
+                                                    _autorun.destroy();
+                                                    _autorun = null;
+                                                }
+                                                _that = null;
+                                            });
+                                            _autorun.run();
+                                        }
+                                        else if (this.$fieldComputeAutorunName.invalidated) {
+                                            // If we request property while autorun is invalidated,
+                                            // run it first to get up to date data
+                                            this.$fieldComputeAutorunName.run();
+                                        }
+                                    }
+                                    else if (!this.$fieldComputedOnceName) {
+                                        // In case we request this property for the first time
+                                        // during destroy process
+                                        tracker.Autorun.unobserve();
+                                        this.$fieldComputedOnceName = true;
+                                        this.$unobservedFieldName = this.$computeFieldName();
+                                        tracker.Autorun.reobserve();
                                     }
 
                                     return this.$unobservedFieldName;
@@ -301,6 +318,28 @@ class ObservableMacro {
                             }]
                         };
                         newFields.push(autorunField);
+
+                        // Add computed once field
+                        var computedOnceField = {
+                            pos: field.pos,
+                            name: fieldComputedOnceName,
+                            kind: FVar(macro :Bool, macro false),
+                            access: [APrivate],
+                            meta: hasKeepMeta ? [{
+                                name: ':keep',
+                                params: [],
+                                pos: field.pos
+                            }, {
+                                name: ':noCompletion',
+                                params: [],
+                                pos: field.pos
+                            }] : [{
+                                name: ':noCompletion',
+                                params: [],
+                                pos: field.pos
+                            }]
+                        };
+                        newFields.push(computedOnceField);
 
                     default:
                         throw new Error("Invalid computed variable", field.pos);
