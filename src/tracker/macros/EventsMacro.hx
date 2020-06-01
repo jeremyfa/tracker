@@ -205,7 +205,7 @@ class EventsMacro {
                 }
 
                 var handlerName = 'handle' + [for (arg in fn.args) arg.name.substr(0,1).toUpperCase() + arg.name.substr(1)].join('');
-                var handlerType = TFunction([for (arg in fn.args) arg.type], macro :Void);
+                var handlerType = TFunction([for (arg in fn.args) TNamed(arg.name, arg.type)], macro :Void);
                 var handlerTypeBoxed = TFunction([for (i in 0...fn.args.length+1) macro :Dynamic], macro :Void);
                 var handlerNumArgs = fn.args.length;
                 var handlerCallArgs = [for (arg in fn.args) macro $i{arg.name}];
