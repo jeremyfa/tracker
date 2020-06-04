@@ -942,6 +942,13 @@ class EventsMacro {
                                         }
                                         this.$cbOnOwnerUnbindArray.push(null);
                                     }
+
+                                    // Check handler
+                                    #if tracker_check_handlers
+                                    if (!Reflect.isFunction($i{handlerName})) {
+                                        throw $v{sanitizedName} + " is not a function!";
+                                    }
+                                    #end
     
                                     // Add handler
                                     #if tracker_debug_events
@@ -1032,6 +1039,13 @@ class EventsMacro {
                                         }
                                         this.$cbOnceOwnerUnbindArray.push(null);
                                     }
+
+                                    // Check handler
+                                    #if tracker_check_handlers
+                                    if (!Reflect.isFunction($i{handlerName})) {
+                                        throw $v{sanitizedName} + " is not a function!";
+                                    }
+                                    #end
     
                                     // Add handler
                                     #if tracker_debug_events
