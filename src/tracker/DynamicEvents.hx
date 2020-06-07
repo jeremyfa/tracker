@@ -6,7 +6,7 @@ import ceramic.Entity;
 
 /** Fire and listen to dynamic events. Works similarly to static events, but dynamic.
     If you can know the event names at compile time, using static events (`@event function myEvent();`) is preferred. */
-class DynamicEvents<T> extends Entity {
+class DynamicEvents<T> extends Entity #if tracker_ceramic implements ceramic.Component #end {
 
     var dispatcher:EventDispatcher;
 
@@ -20,6 +20,12 @@ class DynamicEvents<T> extends Entity {
 
         dispatcher = new EventDispatcher();
         mapping = new Map();
+
+    }
+
+    function bindAsComponent() {
+
+        //
 
     }
 
