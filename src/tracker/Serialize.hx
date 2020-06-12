@@ -75,7 +75,7 @@ class Serialize {
         if (Std.is(value, Entity)) {
             var entity:Entity = cast value;
             if (entity.destroyed) {
-                backend.error('entity destroyed!');
+                backend.error('Entity destroyed: $entity');
                 return null;
             }
         }
