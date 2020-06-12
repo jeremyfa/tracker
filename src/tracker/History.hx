@@ -151,6 +151,18 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
 
     }
 
+    public function disable():Void {
+
+        ignoreSteps++;
+
+    }
+
+    public function enable():Void {
+
+        ignoreSteps--;
+
+    }
+
     /**
      * Undo last step, if any
      */
