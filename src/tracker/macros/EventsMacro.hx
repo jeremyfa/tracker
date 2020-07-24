@@ -945,7 +945,7 @@ class EventsMacro {
 
                                     // Check handler
                                     #if tracker_check_handlers
-                                    if (!Reflect.isFunction($i{handlerName})) {
+                                    if ($i{handlerName} == null || !Reflect.isFunction($i{handlerName})) {
                                         throw $v{sanitizedName} + " is not a function!";
                                     }
                                     #end
@@ -1042,7 +1042,7 @@ class EventsMacro {
 
                                     // Check handler
                                     #if tracker_check_handlers
-                                    if (!Reflect.isFunction($i{handlerName})) {
+                                    if ($i{handlerName} == null || !Reflect.isFunction($i{handlerName})) {
                                         throw $v{sanitizedName} + " is not a function!";
                                     }
                                     #end
