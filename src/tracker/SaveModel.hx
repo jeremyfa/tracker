@@ -28,6 +28,12 @@ class SaveModel {
 
     }
 
+    public static function isBusyKey(key:String):Bool {
+
+        return busyKeys.indexOf(key) != -1;
+
+    }
+
     /** Load data from the given key. */
     public static function loadFromKey(model:Model, key:String):Bool {
 
