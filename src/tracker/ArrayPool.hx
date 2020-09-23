@@ -18,6 +18,8 @@ class ArrayPool {
 
     static var dynPool100000:ArrayPool = new ArrayPool(100000);
 
+    static var didNotifyLargePool:Bool = false;
+
     public static function pool(size:Int):ArrayPool {
 
         if (size <= 10) {
@@ -36,7 +38,15 @@ class ArrayPool {
             return cast dynPool100000;
         }
         else {
-            return null;
+            if (!didNotifyLargePool) {
+                didNotifyLargePool = true;
+                Tracker.backend.delay(null, 0.5, () -> {
+                    didNotifyLargePool = false;
+                });
+
+                trace('[warning] You should avoid asking a pool for arrays with more than 100000 elements (asked: $size) because it needs allocating a temporary one-time pool each time for that.');
+            }
+            return new ArrayPool(size);
         }
 
     }
