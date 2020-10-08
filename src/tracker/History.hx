@@ -4,6 +4,10 @@ import tracker.Tracker.backend;
 
 class History extends #if tracker_ceramic ceramic.Entity #else Entity #end implements #if tracker_ceramic ceramic.Component #else Component #end {
 
+    @event function _undo();
+
+    @event function _redo();
+
     var entity:Model;
 
     var stepPending:Bool;
@@ -176,6 +180,8 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
             currentStep--;
 
             applyCurrentStep();
+
+            emitUndo();
         }
 
     }
@@ -193,6 +199,8 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
             currentStep++;
 
             applyCurrentStep();
+
+            emitRedo();
         }
 
     }
