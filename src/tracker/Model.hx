@@ -64,7 +64,11 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
     }
 
+    static final TO_DYNAMIC_MAX_STACK:Int = 8;
+
     static var _toDynamicUsed:Array<Dynamic> = null;
+
+    static var _toDynamicStack:Int = 0;
 
     static function _toDynamic(obj:Dynamic):Dynamic {
 
@@ -75,6 +79,10 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
         if (_toDynamicUsed == null) {
             didInitUsed = true;
             _toDynamicUsed = [];
+            _toDynamicStack = 0;
+        }
+        else {
+            _toDynamicStack++;
         }
 
         var result:Dynamic = {};
@@ -97,7 +105,7 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
                         Reflect.setField(result, displayKey, value);
                     }
                     else {
-                        if (_toDynamicUsed.indexOf(value) != -1) {
+                        if (_toDynamicUsed.indexOf(value) != -1 || _toDynamicStack > TO_DYNAMIC_MAX_STACK) {
                             Reflect.setField(result, displayKey, '<...>');
                         }
                         else {
@@ -110,6 +118,10 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
         if (didInitUsed) {
             _toDynamicUsed = null;
+            _toDynamicStack = 0;
+        }
+        else {
+            _toDynamicStack--;
         }
 
         Autorun.current = prevAutorun;
