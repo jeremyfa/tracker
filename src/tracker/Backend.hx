@@ -83,6 +83,18 @@ interface Backend {
      */
     function delay(owner:Entity, seconds:Float, callback:Void->Void):Void->Void;
 
+    /**
+     * Get storage directory (if any available)
+     * @return directory as string or null if nothing available
+     */
+    function storageDirectory():Null<String>;
+
+    /**
+     * Joins all paths in `paths` together.
+     * @return joined paths as string
+     */
+    function pathJoin(paths:Array<String>):String;
+
 }
 
 #end

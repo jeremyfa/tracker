@@ -200,6 +200,24 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     }
 
-    
+    /**
+     * Get storage directory (if any available)
+     * @return directory as string or null if nothing available
+     */
+    inline public function storageDirectory():Null<String> {
+
+        return null;
+
+    }
+
+    /**
+     * Joins all paths in `paths` together.
+     * @return joined paths as string
+     */
+    inline public function pathJoin(paths:Array<String>):String {
+
+        return haxe.io.Path.join(paths);
+
+    }
 
 }

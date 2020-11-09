@@ -1,6 +1,7 @@
 package tracker;
 
 import tracker.Tracker.backend;
+import haxe.crypto.Md5;
 
 class SaveModel {
 
@@ -9,8 +10,6 @@ class SaveModel {
     static var NUM_BACKUPS:Int = 4;
 
     static var BACKUP_STEPS:Array<Int> = null;
-
-    static var backupStepByKey:Map<String,Int> = null;
 
     static var busyKeys:Array<String> = [];
 
@@ -41,7 +40,7 @@ class SaveModel {
             throw 'Cannot load data from key $key because some work is being done on it';
         }
 
-        initBackupLogicIfNeeded(key);
+        //initBackupLogicIfNeeded(key);
 
         var rawId = backend.readString('save_id_1_' + key);
         var id = rawId != null ? Std.parseInt(rawId) : -1;
@@ -62,23 +61,48 @@ class SaveModel {
             }
         }
 
+        #if sys
+        // On sys targets, try to load from backup if nothing else worked
         if (data == null) {
-            data = fetchMostRecentBackup(key);
-            if (data == null) {
-                backend.warning('No backup available for key $key, that is probably a new save slot.');
-            }
-            else {
-                backend.success('Recovered from backup!');
+            var storageDir = backend.storageDirectory();
+            if (storageDir != null) {
+                // Retrieve keys
+                var backupHash = Md5.encode('backup ~ ' + key);
+                var backupKey1 = 'backup_1_' + backupHash;
+                var backupKey2 = 'backup_2_' + backupHash;
+
+                try {
+                    // Try backup 1
+                    var dataPath = backend.pathJoin([storageDir, backupKey1]);
+                    if (sys.FileSystem.exists(dataPath) && !sys.FileSystem.isDirectory(dataPath)) {
+                        var backupData = sys.io.File.getContent(dataPath);
+                        if (backupData != null) {
+                            data = decodeHashedString(backupData);
+                        }
+                    }
+
+                    if (data == null) {
+                        // Try backup 2
+                        dataPath = backend.pathJoin([storageDir, backupKey2]);
+                        if (sys.FileSystem.exists(dataPath) && !sys.FileSystem.isDirectory(dataPath)) {
+                            var backupData = sys.io.File.getContent(dataPath);
+                            if (backupData != null) {
+                                data = decodeHashedString(backupData);
+                            }
+                        }
+                    }
+                }
+                catch (e:Dynamic) {
+                    backend.error('Failed to load backup: $e');
+                }
             }
         }
+        #end
 
         return SerializeModel.loadFromData(model, data);
 
     }
     public static function autoSaveAsKey(model:Model, key:String, appendInterval:Float = 1.0, compactInterval:Float = 60.0) {
-
-        // Init backup logic if needed
-        initBackupLogicIfNeeded(key);
 
         var serializer = model.serializer;
         if (serializer == null) {
@@ -94,6 +118,12 @@ class SaveModel {
         var saveDataKey2 = 'save_data_2_' + key;
         var saveIdKey1 = 'save_id_1_' + key;
         var saveIdKey2 = 'save_id_2_' + key;
+
+        #if sys
+        var backupHash = Md5.encode('backup ~ ' + key);
+        var backupKey1 = 'backup_1_' + backupHash;
+        var backupKey2 = 'backup_2_' + backupHash;
+        #end
 
         // Start listening for changes to save them
         serializer.onChangeset(model, function(changeset) {
@@ -115,16 +145,19 @@ class SaveModel {
                         // We use and update multiple files to ensure that, in case of crash or any other issue
                         // when writing a file, it will fall back to the other one safely. If anything goes
                         // wrong, there should always be a save file to fall back on.
+
+                        // Encode data
+                        var encodedData = Utils.encodeChangesetData(data);
                         
                         // Append first file
-                        backend.appendString(saveDataKey1, Utils.encodeChangesetData(data));
+                        backend.appendString(saveDataKey1, encodedData);
                         // Mark this first file as the valid one on first id key
                         backend.saveString(saveIdKey1, '1');
                         // Mark this first file as the valid one on second id key
                         backend.saveString(saveIdKey2, '1');
 
                         // Append second file
-                        backend.appendString(saveDataKey2, Utils.encodeChangesetData(data));
+                        backend.appendString(saveDataKey2, encodedData);
                         // Mark this second file as the valid one on first id key
                         backend.saveString(saveIdKey1, '2');
                         // Mark this second file as the valid one on second id key
@@ -151,46 +184,59 @@ class SaveModel {
                 #if tracker_debug_save
                 trace('Save $key (full ${changeset.data.length})');//: ' + changeset.data);
                 #end
-
-                var backupStep = backupStepByKey.get(key);
-                var backupId = BACKUP_STEPS[backupStep];
                 
-                (function(data:String, key:String, backupStep:Int, backupId:Int) {
+                (function(data:String, key:String) {
                     backend.runInBackground(function() {
 
                         // We use and update multiple files to ensure that, in case of crash or any other issue
                         // when writing a file, it will fall back to the other one safely. If anything goes
                         // wrong, there should always be a save file to fall back on.
 
+                        // Encode data
+                        var encodedData = Utils.encodeChangesetData(data);
+
                         // Save first file
-                        backend.saveString(saveDataKey1, Utils.encodeChangesetData(data));
+                        backend.saveString(saveDataKey1, encodedData);
                         // Mark this first file as the valid one on first id key
                         backend.saveString(saveIdKey1, '1');
                         // Mark this first file as the valid one on second id key
                         backend.saveString(saveIdKey2, '1');
 
                         // Save second file
-                        backend.saveString(saveDataKey2, Utils.encodeChangesetData(data));
+                        backend.saveString(saveDataKey2, encodedData);
                         // Mark this second file as the valid one on first id key
                         backend.saveString(saveIdKey1, '2');
                         // Mark this second file as the valid one on second id key
                         backend.saveString(saveIdKey2, '2');
 
-                        // Save a backup on compact
-                        // That file will be used at load if we fail to load the regular one
-                        backend.saveString('backup_data_' + backupId + '_' + key, Math.round(Date.now().getTime()) + ':' + data.length + ':' + data);
-
-                        // Increment backup step
-                        backupStep = (backupStep + 1) % BACKUP_NUM_STEPS;
-
-                        // Update backup step on disk
-                        backend.saveString('backup_step_1_' + key, '' + backupStep);
-                        backend.saveString('backup_step_2_' + key, '' + backupStep);
+                        #if sys
+                        // On sys targets, make an additional backup on a plain text file
+                        var storageDir = backend.storageDirectory();
+                        if (storageDir != null) {
+                            try {
+                                // Ensure directory exists
+                                if (!sys.FileSystem.exists(storageDir)) {
+                                    sys.FileSystem.createDirectory(storageDir);
+                                }
+    
+                                // Create hashed data
+                                var backupData = encodeHashedString(encodedData);
+    
+                                // Save backup 1
+                                var dataPath = backend.pathJoin([storageDir, backupKey1]);
+                                sys.io.File.saveContent(dataPath, backupData);
+    
+                                // Save backup 2
+                                dataPath = backend.pathJoin([storageDir, backupKey2]);
+                                sys.io.File.saveContent(dataPath, backupData);
+                            }
+                            catch (e:Dynamic) {
+                                backend.error('Error when saving backup: $e');
+                            }
+                        }
+                        #end
 
                         backend.runInMain(function() {
-
-                            // Update backup step in map
-                            backupStepByKey.set(key, backupStep);
 
                             // Pop busy key
                             var busyIndex = busyKeys.indexOf(key);
@@ -204,7 +250,7 @@ class SaveModel {
                         
 
                     });
-                })(changeset.data, key, backupStep, backupId);
+                })(changeset.data, key);
             }
 
         });
@@ -225,84 +271,32 @@ class SaveModel {
 
     }
 
-    static function initBackupLogicIfNeeded(key:String):Void {
+    /** Encode the given string `str` and return the result. */
+    public static function encodeHashedString(str:String):String {
 
-        if (backupStepByKey == null) {
-            backupStepByKey = new Map();
-
-            BACKUP_STEPS = Utils.uniformFrequencyList(
-                [1, 2, 3, 4],
-                [
-                    0.5 - 20.0 / BACKUP_NUM_STEPS - 2.0 / BACKUP_NUM_STEPS,
-                    0.5 - 20.0 / BACKUP_NUM_STEPS - 2.0 / BACKUP_NUM_STEPS,
-                    20.0 / BACKUP_NUM_STEPS,
-                    2.0 / BACKUP_NUM_STEPS
-                ],
-                BACKUP_NUM_STEPS
-            );
-        }
-        
-        if (!backupStepByKey.exists(key)) {
-
-            var rawStep = backend.readString('backup_step_1_' + key);
-            var step = rawStep != null ? Std.parseInt(rawStep) : -1;
-            if (step == null || Math.isNaN(step) || step < 0 || step >= BACKUP_NUM_STEPS) {
-                rawStep = backend.readString('backup_step_2_' + key);
-                step = rawStep != null ? Std.parseInt(rawStep) : -1;
-            }
-
-            if (step == null || Math.isNaN(step) || step < 0 || step >= BACKUP_NUM_STEPS) {
-                backend.warning('No backup step saved, start with zero');
-                step = 0;
-            }
-
-            backupStepByKey.set(key, step);
-        }
+        var hash = Md5.encode(str);
+        var len = str.length;
+        return hash + '' + str;
 
     }
 
-    static function fetchMostRecentBackup(key:String):String {
+    /** Decode the given `encoded` string and return the result or null if it failed. */
+    public static function decodeHashedString(encoded:String):String {
 
-        var backups:Array<String> = [];
-        var times:Array<Float> = []; 
+        var i = 0;
+        var len = encoded.length;
 
-        for (backupId in 0...4) {
-            var backup = backend.readString('backup_data_' + backupId + '_' + key);
+        // Check hash
+        var str = encoded.substring(32);
+        var storedHash = encoded.substring(0, 32);
+        var computedHash = Md5.encode(str);
 
-            if (backup != null) {
-                // Extract time and data
-                var colonIndex = backup.indexOf(':');
-                if (colonIndex != -1) {
-                    var rawTime = backup.substring(0, colonIndex);
-                    var time:Null<Float> = Std.parseFloat(rawTime);
-                    if (time != null && !Math.isNaN(time) && time > 0) {
-                        backups.push(backup.substring(colonIndex + 1));
-                        times.push(time);
-                    }
-                }
-            } 
-        }
-
-        var bestTime:Float = -1;
-        var bestIndex:Int = -1;
-
-        // Find most rencent backup among every loaded backup
-        for (i in 0...times.length) {
-            var time = times[i];
-            if (time > bestTime) {
-                bestTime = time;
-                bestIndex = i;
-            }
-        }
-
-        if (bestIndex != -1) {
-            // Found one!
-            return backups[bestIndex];
-        }
-        else {
-            // No backup available
+        if (storedHash != computedHash) {
+            backend.error('Hash mismatch (stored=$storedHash computed=$computedHash)');
             return null;
         }
+
+        return str;
 
     }
 
