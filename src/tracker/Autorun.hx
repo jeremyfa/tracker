@@ -126,7 +126,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         This should be called after an `unobserve()` call. */
     #if !debug inline #end public static function reobserve():Void {
 
-        Assert.assert(prevCurrent.length > 0, 'Cannot call reobserve() without calling observe() before.');
+        Assert.assert(prevCurrent.length > 0, 'Cannot call reobserve() without calling unobserve() before.');
 
         // Restore previous current autorun
         current = prevCurrent.pop();
