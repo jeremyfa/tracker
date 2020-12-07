@@ -780,7 +780,7 @@ class EventsMacro {
                             kind: FFun({
                                 args: [{
                                     name: '_cbsArray',
-                                    type: #if tracker_ceramic macro :ceramic.ReusableArray<Dynamic> #else macro :tracker.ReusableArray<Dynamic> #end
+                                    type: #if tracker_ceramic macro :ceramic.ReusableArray<Any> #else macro :tracker.ReusableArray<Any> #end
                                 }, {
                                     name: '_cbsLen',
                                     type: macro :Int
@@ -791,7 +791,7 @@ class EventsMacro {
                                 ret: macro :Void,
                                 expr: macro {
                                     for (i in 0..._cbsLen) {
-                                        var cb = _cbsArray.get(i);
+                                        var cb:Dynamic = _cbsArray.get(i);
                                         _cbsArray.set(i, null);
                                         cb($a{handlerCallArgs});
                                         cb = null;
@@ -852,7 +852,7 @@ class EventsMacro {
                                                 this.$cbOnceArray = null;
                                             }
                                             for (i in 0...len) {
-                                                var cb = callbacks.get(i);
+                                                var cb:Dynamic = callbacks.get(i);
                                                 cb($a{handlerCallArgs});
                                             }
                                             pool.release(callbacks);
