@@ -152,28 +152,33 @@ class EventDispatcher {
             }
             if (numArgs == 0) {
                 for (i in 0...len) {
-                    callbacks.get(i)();
+                    var cb:Void->Void = callbacks.get(i);
+                    cb();
                 }
             }
             else if (numArgs == 1) {
                 for (i in 0...len) {
-                    callbacks.get(i)(arg1);
+                    var cb:Dynamic->Void = callbacks.get(i);
+                    cb(arg1);
                 }
             }
             else if (numArgs == 2) {
                 for (i in 0...len) {
-                    callbacks.get(i)(arg1, arg2);
+                    var cb:Dynamic->Dynamic->Void = callbacks.get(i);
+                    cb(arg1, arg2);
                 }
             }
             else if (numArgs == 3) {
                 for (i in 0...len) {
-                    callbacks.get(i)(arg1, arg2, arg3);
+                    var cb:Dynamic->Dynamic->Dynamic->Void = callbacks.get(i);
+                    cb(arg1, arg2, arg3);
                 }
             }
             else {
                 var args:Array<Dynamic> = arg1;
                 for (i in 0...len) {
-                    Reflect.callMethod(null, callbacks.get(i), args);
+                    var cb:Dynamic = callbacks.get(i);
+                    Reflect.callMethod(null, cb, args);
                 }
             }
             pool.release(callbacks);
