@@ -54,7 +54,7 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
             }
 
             for (i in 0...len) {
-                var cb = callbacks.get(i);
+                var cb:Void->Void = callbacks.get(i);
                 cb();
             }
 

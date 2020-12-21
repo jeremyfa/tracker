@@ -89,7 +89,7 @@ class ArrayPool {
         while (true) {
             nextFree++;
             if (nextFree == arrays.length) break;
-            var item = arrays.get(nextFree);
+            var item:ReusableArray<Any> = arrays.get(nextFree);
             if (item == null) break;
             if (@:privateAccess item._poolIndex == -1) break;
         }
