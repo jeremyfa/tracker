@@ -615,7 +615,7 @@ class ObservableMacro {
                     return $i{fieldName}
                 }
             }),
-            access: [APrivate #if !haxe_server , AInline #end],
+            access: [APrivate],
             doc: '',
             meta: hasKeepMeta ? [{
                 name: ':keep',
@@ -650,7 +650,7 @@ class ObservableMacro {
                     }
                 }
             }),
-            access: [APublic #if !haxe_server , AInline #end],
+            access: [APublic],
             doc: '',
             meta: hasKeepMeta ? [{
                 name: ':keep',
@@ -678,7 +678,7 @@ class ObservableMacro {
                 ret: macro :Void,
                 expr: macro {}
             }),
-            access: [APublic #if !haxe_server , AInline #end],
+            access: [APublic],
             doc: '',
             meta: []
         }
