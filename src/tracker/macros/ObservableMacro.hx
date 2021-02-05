@@ -588,10 +588,10 @@ class ObservableMacro {
                 ret: type,
                 expr: macro {
                     var prevValue = this.$unobservedFieldName;
-                    if (prevValue == $i{fieldName}) {
-                        return prevValue;
-                    }
                     this.$unobservedFieldName = $i{fieldName};
+                    if (prevValue == $i{fieldName}) {
+                        return $i{fieldName};
+                    }
                     if (!observedDirty) {
                         observedDirty = true;
                         emitObservedDirty(this, $v{hasSerializeMeta});
