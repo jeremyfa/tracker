@@ -89,7 +89,8 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
         for (key in Reflect.fields(obj)) {
 
-            if (key.startsWith('__')) continue;
+            if (key.startsWith('_')) continue;
+            if (key.endsWith('Autoruns')) continue;
 
             var displayKey = key;
             if (displayKey.startsWith('unobserved')) {
