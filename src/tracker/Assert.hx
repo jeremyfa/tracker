@@ -19,8 +19,8 @@ class Assert {
 
         return macro @:pos(Context.currentPos()) {
             if (!$expr) {
-                tracker.Tracker.backend.error('$str' + $reason);
-                throw '$str' + $reason;
+                tracker.Tracker.backend.error($v{str} + $reason);
+                throw $v{str} + $reason;
             }
         }
 #else

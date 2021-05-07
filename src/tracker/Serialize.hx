@@ -72,7 +72,7 @@ class Serialize {
         if (_serializedMap == null) return null;
 
         // Ensure we don't serialize anything that got destroyed
-        if (Std.is(value, Entity)) {
+        if (Std.isOfType(value, Entity)) {
             var entity:Entity = cast value;
             if (entity.destroyed) {
                 backend.error('Entity destroyed: $entity');
@@ -80,7 +80,7 @@ class Serialize {
             }
         }
 
-        if (Std.is(value, Serializable)) {
+        if (Std.isOfType(value, Serializable)) {
 
             var clazz = Type.getClass(value);
             var props:Dynamic = {};
@@ -141,7 +141,7 @@ class Serialize {
             return { id: id };
 
         }
-        else if (Std.is(value, Array)) {
+        else if (Std.isOfType(value, Array)) {
 
             var result:Array<Dynamic> = [];
 
@@ -153,7 +153,7 @@ class Serialize {
             return result;
 
         }
-        else if (Std.is(value, String) || Std.is(value, Int) || Std.is(value, Float) || Std.is(value, Bool)) {
+        else if (Std.isOfType(value, String) || Std.isOfType(value, Int) || Std.isOfType(value, Float) || Std.isOfType(value, Bool)) {
 
             return value;
 
@@ -214,7 +214,7 @@ class Serialize {
         if (_serializedMap == null) return null;
         if (_deserializedMap == null) return null;
 
-        if (Std.is(value, Array)) {
+        if (Std.isOfType(value, Array)) {
 
             var result:Array<Dynamic> = [];
 
@@ -226,7 +226,7 @@ class Serialize {
             return result;
 
         }
-        else if (Std.is(value, String) || Std.is(value, Int) || Std.is(value, Float) || Std.is(value, Bool)) {
+        else if (Std.isOfType(value, String) || Std.isOfType(value, Int) || Std.isOfType(value, Float) || Std.isOfType(value, Bool)) {
 
             return value;
 

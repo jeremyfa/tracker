@@ -104,7 +104,7 @@ class Entity implements Events {
                         for (weakRef in weakRefs) {
                             var entity:Entity = weakRef.get();
                             if (entity != null) {
-                                if (Std.is(entity, tracker.Autorun)) {
+                                if (Std.isOfType(entity, tracker.Autorun)) {
                                     var autor:tracker.Autorun = cast entity;
                                     if (@:privateAccess autor.onRun != null) {
                                         throw "Autorun onRun is not null!";

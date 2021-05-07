@@ -102,7 +102,7 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
                 case TNull | TInt | TFloat | TBool | TFunction | TUnknown | TEnum(_):
                     Reflect.setField(result, displayKey, value);
                 case TObject | TClass(_):
-                    if (Std.is(value, String)) {
+                    if (Std.isOfType(value, String)) {
                         Reflect.setField(result, displayKey, value);
                     }
                     else {

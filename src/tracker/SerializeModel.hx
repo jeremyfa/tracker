@@ -57,7 +57,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         Serialize._serializedMap = new Map();
         Serialize._onAddSerializable = function(serializable:Serializable) {
 
-            if (Std.is(serializable, Model)) {
+            if (Std.isOfType(serializable, Model)) {
                 var model:Model = cast serializable;
                 model.observedDirty = false;
                 track(model);
@@ -248,7 +248,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         };
         Serialize._onAddSerializable = function(serializable:Serializable) {
 
-            if (Std.is(serializable, Model)) {
+            if (Std.isOfType(serializable, Model)) {
 
                 var model:Model = cast serializable;
                 model.observedDirty = false;
@@ -305,7 +305,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         // Use previous serialized map to perform the change
         for (k => item in prevDeserializedMap) {
             if (deserializedMap.get(k) != item) {
-                if (Std.is(item, Model)) {
+                if (Std.isOfType(item, Model)) {
                     var _model:Model = cast item;
                     if (_model != model) {
                         if (@:privateAccess _model.serializeShouldDestroy()) {
