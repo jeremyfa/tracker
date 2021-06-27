@@ -482,6 +482,27 @@ class EventsMacro {
                 }
 #end
 
+            
+#if (documentation && dox_events)
+                var doxEventField = {
+                    pos: field.pos,
+                    name: '_dox_event_' + field.name,
+                    kind: FFun({
+                        args: fn.args,
+                        ret: macro :Void,
+                        expr: macro {}
+                    }),
+                    access: [APublic],
+                    doc: field.doc,
+                    meta: [{
+                        name: ':dox',
+                        params: [macro show],
+                        pos: Context.currentPos()
+                    }]
+                };
+                newFields.push(doxEventField);
+#end
+
                 if (dynamicDispatch) {
 
                     // Create emit{Name}()
@@ -702,6 +723,19 @@ class EventsMacro {
                         }]
                     };
                     newFields.push(get_listensField);
+
+#if documentation
+                    for (field in [onField, onceField, offField, listensField]) {
+                        if (field.meta == null) {
+                            field.meta = [];
+                        }
+                        field.meta.push({
+                            name: ':dox',
+                            params: [macro hide],
+                            pos: field.pos
+                        });
+                    }
+#end
 
                 }
                 else {
@@ -1222,6 +1256,19 @@ class EventsMacro {
                             default:
                         }
                     }
+
+#if documentation
+                    for (field in [onField, onceField, offField, listensField]) {
+                        if (field.meta == null) {
+                            field.meta = [];
+                        }
+                        field.meta.push({
+                            name: ':dox',
+                            params: [macro hide],
+                            pos: field.pos
+                        });
+                    }
+#end
                 }
 
             default:
