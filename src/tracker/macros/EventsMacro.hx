@@ -1229,6 +1229,13 @@ class EventsMacro {
                             doc: '',
                             meta: []
                         }
+                        if (isOverriding) {
+                            unbindEventsField.meta.push({
+                                name: ':dox',
+                                params: [macro hide],
+                                pos: field.pos
+                            });
+                        }
                         existingFields.push(unbindEventsField);
                     }
                     else {
