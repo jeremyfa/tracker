@@ -66,6 +66,10 @@ class Serialize {
 
     static var _appendSerialize:Bool = false;
 
+    static var _cachedEnumInfoBySerializableType:Map<String,Bool> = new Map();
+
+    static var _enumInfo:Map<String,Map<String,Array<String>>> = new Map();
+
     static function serializeValue(value:Dynamic):Dynamic {
 
         if (value == null) return null;
@@ -83,10 +87,24 @@ class Serialize {
         if (Std.isOfType(value, Serializable)) {
 
             var clazz = Type.getClass(value);
+            var className = Type.getClassName(clazz);
             var props:Dynamic = {};
             var id = value._serializeId;
 
             Assert.assert(id != null, 'Serializable id must not be null');
+
+            // Extract and cache enum info (needed for better serialization of enum values)
+            if (!_cachedEnumInfoBySerializableType.exists(className)) {
+                _cachedEnumInfoBySerializableType.set(className, true);
+                if (Reflect.hasField(clazz, '_serializeEnumInfo')) {
+                    var enumInfo:Map<String,Map<String,Array<String>>> = Reflect.field(clazz, '_serializeEnumInfo');
+                    if (enumInfo != null) {
+                        for (key => val in enumInfo) {
+                            _enumInfo.set(key, val);
+                        }
+                    }
+                }
+            }
 
             if (_deserializedMap != null) {
                 _deserializedMap.set(id, value);
@@ -153,6 +171,49 @@ class Serialize {
             return result;
 
         }
+        #if !tracker_no_enum_args_matching
+        else if (Reflect.isEnumValue(value)) {
+
+            var enumValue:EnumValue = value;
+            var enumType = Type.getEnum(enumValue);
+            var enumName = Type.getEnumName(enumType);
+            var params = Type.enumParameters(enumValue);
+            var constructName = enumValue.getName();
+            var enumInfo = _enumInfo.get(enumName);
+            var constructInfo = null;
+            if (enumInfo != null) {
+                constructInfo = enumInfo.get(constructName);
+            }
+            // trace('enumType: $enumType');
+            // trace('enumName: $enumName');
+            // trace('params: $params');
+            // trace('constructName: $constructName');
+            // trace('constructInfo: $constructInfo');
+
+            var enumData:Array<Dynamic> = [enumName, constructName];
+
+            if (constructInfo != null) {
+                enumData.push(constructInfo.length);
+            }
+            else {
+                enumData.push(null);
+            }
+            
+            for (param in params) {
+                enumData.push(serializeValue(param));
+            }
+
+            if (constructInfo != null) {
+                for (argName in constructInfo)
+                    enumData.push(argName);
+            }
+
+            return {
+                en: enumData
+            };
+
+        }
+        #end
         else if (Std.isOfType(value, String) || Std.isOfType(value, Int) || Std.isOfType(value, Float) || Std.isOfType(value, Bool)) {
 
             return value;
@@ -195,7 +256,7 @@ class Serialize {
 
         // If nothing else worked, fallback to regular haxe serialization
         if (customHxSerialize != null) {
-            return { hx : customHxSerialize(value) };
+            return { hx: customHxSerialize(value) };
         }
         else {
             // Use Haxe's built in serializer as a fallback
@@ -356,6 +417,73 @@ class Serialize {
             return result;
 
         }
+        #if !tracker_no_enum_args_matching
+        else if (value.en != null) {
+
+            var enumData:Array<Dynamic> = value.en;
+            var enumName:String = enumData[0];
+            var constructName:String = enumData[1];
+            var hasArgNames = (enumData[2] != null);
+            var numArgNames:Int = hasArgNames ? enumData[2] : 0;
+            var enumInfo = _enumInfo.get(enumName);
+            var constructInfo = enumInfo != null ? enumInfo.get(constructName) : null;
+            var numArgs = enumData.length - 2 - numArgNames;
+            var enumDataLen = enumData.length;
+
+            var enumType = Type.resolveEnum(enumName);
+            if (enumType == null) {
+                return null;
+            }
+
+            var enumValue = null;
+
+            if (constructInfo != null || numArgs > 0) {
+                var args:Array<Dynamic> = [];
+
+                if (constructInfo != null && hasArgNames) {
+                    // When we got more compile time info, we can be more forgiving
+                    // about enum constructors with new arguments.
+                    // We can match arguments by their name even if order has changed
+                    for (i in 0...constructInfo.length) {
+                        var foundArg = false;
+                        var requestedArgName = constructInfo[i];
+                        for (j in 0...numArgNames) {
+                            var argName = enumData[enumDataLen - numArgNames + j];
+                            if (argName == requestedArgName) {
+                                args.push(enumData[3 + j]);
+                                foundArg = true;
+                                break;
+                            }
+                        }
+                        if (!foundArg) {
+                            args.push(null);
+                        }
+                    }
+                }
+                else {
+                    // No compile time info, we just take the args as is
+                    for (i in 0...numArgs) {
+                        args.push(enumData[3 + i]);
+                    }
+                }
+
+                // Deserialize arguments
+                for (i in 0...args.length) {
+                    args[i] = deserializeValue(args[i]);
+                }
+
+                // Create enum instance with arguments
+                enumValue = Type.createEnum(enumType, constructName, args);
+            }
+            else {
+                // Create enum instance without arguments
+                enumValue = Type.createEnum(enumType, constructName);
+            }
+            
+            return enumValue;
+
+        }
+        #end
         else if (value.hx != null) {
 
             if (customHxDeserialize != null) {

@@ -73,11 +73,12 @@ class SerializableMacro {
             }
         }
 
-#if (!display && !completion)
+#if (completion || (!display && !completion))
         // Gather default values
         var defaultValueFields = [];
         var prefixLen = 'unobserved'.length;
         var used = new Map<String,Bool>();
+        var enumTypes = null;
         for (field in fields) {
 
             switch (field.kind) {
@@ -114,11 +115,152 @@ class SerializableMacro {
                         });
                     }
 
+                    // Gather enum type info if relevant
+                    var enumType = t != null ? resolveEnumTypeIfRelevant(t) : null;
+                    if (enumType != null) {
+                        if (enumTypes == null)
+                            enumTypes = [];
+                        enumTypes.push(enumType);
+                    }
 
                 default:
             }
         }
         fields = fields.concat(defaultValueFields);
+
+        if (enumTypes != null && enumTypes.length > 0) {
+            var enumInfoField = null;
+            var shouldAddEnumInfoField = true;
+
+            for (field in fields) {
+                if (field.name == '_serializeEnumInfo') {
+                    enumInfoField = field;
+                    break;
+                }
+            }
+            if (enumInfoField == null) {
+                enumInfoField = {
+                    pos: pos,
+                    name: '_serializeEnumInfo',
+                    kind: FVar((macro :Map<String,Map<String,Array<String>>>), (macro [])),
+                    access: [AStatic, APublic],
+                    doc: '',
+                    meta: [{
+                        name: ':noCompletion',
+                        params: [],
+                        pos: pos
+                    }]
+                }
+            }
+
+            // Gather existing info in order not to duplicate it
+            var existingEnumNames = new Map<String,Bool>();
+            switch enumInfoField.kind {
+                default:
+                case FVar(t, e):
+                    switch e.expr {
+                        default:
+                        case EArrayDecl(values):
+                            for (value in values) {
+                                switch value.expr {
+                                    default:
+                                    case EBinop(op, e1, e2):
+                                        switch e1.expr {
+                                            default:
+                                            case EConst(CIdent(s)):
+                                                existingEnumNames.set(s, true);
+                                        }
+                                }
+                            }
+                    }
+            }
+
+            // Add enum info
+            var didAddAnyEnumInfo = false;
+            switch enumInfoField.kind {
+                default:
+                case FVar(t, e):
+                    switch e.expr {
+                        default:
+                        case EArrayDecl(values):
+                            var newValues = [].concat(values);
+                            for (enumType in enumTypes) {
+                                switch enumType {
+                                    default:
+                                    case TEnum(t, params):
+                                        var type = t.get();
+                                        var typePath = type.name;
+                                        if (type.pack != null && type.pack.length > 0) {
+                                            typePath = type.pack.join('.') + '.' + typePath;
+                                        }
+                                        if (!existingEnumNames.exists(typePath)) {
+                                            existingEnumNames.set(typePath, true);
+                                            var enumLists:Map<String,Array<String>> = new Map();
+                                            var hasLists = false;
+                                            for (construct in t.get().constructs) {
+                                                switch construct.type {
+                                                    default:
+                                                    case TFun(args, ret):
+                                                        hasLists = true;
+                                                        var list = [];
+                                                        for (arg in args) {
+                                                            list.push(arg.name);
+                                                        }
+                                                        enumLists.set(construct.name, list);
+                                                }
+                                            }
+                                            if (hasLists) {
+                                                didAddAnyEnumInfo = true;
+                                                var arrayExprContent = [];
+                                                for (key => val in enumLists) {
+                                                    var valArrayExpr = [];
+                                                    for (item in val) {
+                                                        valArrayExpr.push({
+                                                            expr: EConst(CString(item)),
+                                                            pos: pos
+                                                        });
+                                                    }
+                                                    arrayExprContent.push({
+                                                        expr: EBinop(
+                                                            OpArrow,
+                                                            {
+                                                                expr: EConst(CString(key)),
+                                                                pos: pos
+                                                            },
+                                                            {
+                                                                expr: EArrayDecl(valArrayExpr),
+                                                                pos: pos
+                                                            }
+                                                        ),
+                                                        pos: pos
+                                                    });
+                                                }
+                                                newValues.push({
+                                                    expr: EBinop(
+                                                        OpArrow,
+                                                        {
+                                                            expr: EConst(CString(typePath)),
+                                                            pos: pos
+                                                        },
+                                                        {
+                                                            expr: EArrayDecl(arrayExprContent),
+                                                            pos: pos
+                                                        }
+                                                    ),
+                                                    pos: pos
+                                                });
+                                            }
+                                        }
+                                }
+                            }
+                            e.expr = EArrayDecl(newValues);
+                    }
+            }
+
+            if (shouldAddEnumInfoField && didAddAnyEnumInfo) {
+                fields.push(enumInfoField);
+            }
+        }
 #end
 
         if (!fieldsByName.exists('_serializeId')) {
@@ -189,6 +331,99 @@ class SerializableMacro {
         }
 
         return false;
+
+    }
+
+    static function unwrapType(type:haxe.macro.Type, unwrapFromArrayAndMap:Bool = true) {
+
+        switch type {
+            case TMono(t): t;
+            case TEnum(t, params):
+            case TInst(t, params):
+                if (unwrapFromArrayAndMap) {
+                    var type = t.get();
+                    if (params != null && params.length == 1) {
+                        if (type.name == 'Array' || type.name == 'ReadOnlyArray' || type.name == 'StringMap' || type.name == 'IntMap') {
+                            return unwrapType(params[0]);
+                        }
+                    }
+                    if (params != null && params.length == 2) {
+                        if (type.name == 'ReadOnlyMap' || type.name == 'Map') {
+                            return unwrapType(params[1]);
+                        }
+                    }
+                }
+            case TType(t, params):
+                var type = t.get();
+                if (unwrapFromArrayAndMap) {
+                    if (params != null && params.length == 1) {
+                        if (type.name == 'Array' || type.name == 'ReadOnlyArray' || type.name == 'StringMap' || type.name == 'IntMap') {
+                            return unwrapType(params[0]);
+                        }
+                    }
+                    if (params != null && params.length == 2) {
+                        if (type.name == 'ReadOnlyMap' || type.name == 'Map') {
+                            return unwrapType(params[1]);
+                        }
+                    }
+                }
+                return unwrapType(t.get().type);
+            case TFun(args, ret):
+            case TAnonymous(a):
+            case TDynamic(t):
+            case TLazy(f):
+                return unwrapType(f());
+            case TAbstract(t, params):
+                var toStr = '' + t;
+                var underlyingType = t.get().type;
+                if (params != null && params.length > 0) {
+                    if (toStr == 'Null') {
+                        return unwrapType(params[0]);
+                    }
+                }
+                if (unwrapFromArrayAndMap) {
+                    var type = t.get();
+                    if (params != null && params.length == 1) {
+                        if (type.name == 'Array' || type.name == 'ReadOnlyArray' || type.name == 'StringMap' || type.name == 'IntMap') {
+                            return unwrapType(params[0]);
+                        }
+                    }
+                    if (params != null && params.length == 2) {
+                        if (type.name == 'ReadOnlyMap' || type.name == 'Map') {
+                            return unwrapType(params[1]);
+                        }
+                    }
+                }
+                switch underlyingType {
+                    case TAbstract(t, params):
+                        var toStrUnder = '' + t;
+                        if (toStr == toStrUnder) {
+                            return type;
+                        }
+                    default:
+                        return unwrapType(underlyingType);
+                }
+        }
+
+        return type;
+
+    }
+
+    static function resolveEnumTypeIfRelevant(t:ComplexType) {
+
+        var type = Context.resolveType(t, Context.currentPos());
+        if (type != null) {
+            type = unwrapType(type);
+            if (type != null) {
+                switch type {
+                    default:
+                    case TEnum(t, params):
+                        return type;
+                }
+            }
+        }
+
+        return null;
 
     }
 
