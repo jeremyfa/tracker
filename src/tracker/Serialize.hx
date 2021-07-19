@@ -171,7 +171,7 @@ class Serialize {
             return result;
 
         }
-        #if !tracker_no_enum_args_matching
+        #if tracker_enum_args_matching
         else if (Reflect.isEnumValue(value)) {
 
             var enumValue:EnumValue = value;
@@ -417,7 +417,7 @@ class Serialize {
             return result;
 
         }
-        #if !tracker_no_enum_args_matching
+        #if tracker_enum_args_matching
         else if (value.en != null) {
 
             var enumData:Array<Dynamic> = value.en;
