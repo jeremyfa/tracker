@@ -153,10 +153,32 @@ class EventsMacro {
         fields.push({
             pos: currentPos,
             name: dispatcherName,
-            kind: FVar(
+            kind: FProp(
+                'get', 'null',
                 macro :tracker.EventDispatcher,
-                macro new tracker.EventDispatcher()
+                null
             ),
+            access: [APrivate],
+            doc: '',
+            meta: [{
+                name: ':noCompletion',
+                params: [],
+                pos: currentPos
+            }]
+        });
+
+        fields.push({
+            pos: currentPos,
+            name: 'get_' + dispatcherName,
+            kind: FFun({
+                args: [],
+                ret: macro :tracker.EventDispatcher,
+                expr: macro {
+                    if (this.$dispatcherName == null)
+                        this.$dispatcherName = new tracker.EventDispatcher();
+                    return this.$dispatcherName;
+                }
+            }),
             access: [APrivate],
             doc: '',
             meta: [{
