@@ -52,7 +52,7 @@ class EventsMacro {
 
         // Check if events should be dispatched dynamically by default on this class
         #if (!completion && !display)
-        var dynamicDispatch = hasDynamicEventsMeta(localClass.meta.get());
+        var dynamicDispatch = #if tracker_dynamic_dispatch true #else hasDynamicEventsMeta(localClass.meta.get()) #end;
         #else
         var dynamicDispatch = false;
         #end
