@@ -1,17 +1,17 @@
 package tracker;
 
+import haxe.DynamicAccess;
+import haxe.ds.IntMap;
 import haxe.ds.Map;
 import haxe.ds.StringMap;
-import haxe.ds.IntMap;
-import haxe.DynamicAccess;
-import tracker.Tracker.backend;
 import haxe.rtti.Meta;
+import tracker.Tracker.backend;
 
+using StringTools;
 #if tracker_ceramic
 import ceramic.Entity;
 #end
 
-using StringTools;
 
 @:allow(tracker.SerializeModel)
 @:allow(tracker.SaveModel)
@@ -135,13 +135,13 @@ class Serialize {
                 var fieldsMeta = Meta.getFields(parentClazz);
                 for (fieldRealName in Reflect.fields(fieldsMeta)) {
                     var fieldInfo = Reflect.field(fieldsMeta, fieldRealName);
-    
+
                     if (Reflect.hasField(fieldInfo, 'serialize')) {
                         var fieldName = fieldRealName;
                         if (fieldName.startsWith('unobserved')) {
                             fieldName = fieldName.charAt(prefixLen).toLowerCase() + fieldName.substr(prefixLen + 1);
                         }
-    
+
                         var originalValue = Extensions.getProperty(value, fieldRealName);
                         var val = serializeValue(originalValue);
                         Reflect.setField(result.props, fieldName, val);
@@ -198,7 +198,7 @@ class Serialize {
             else {
                 enumData.push(null);
             }
-            
+
             for (param in params) {
                 enumData.push(serializeValue(param));
             }
@@ -275,6 +275,8 @@ class Serialize {
         if (_serializedMap == null) return null;
         if (_deserializedMap == null) return null;
 
+        var hasRootSerializable = (serializable != null);
+
         if (Std.isOfType(value, Array)) {
 
             var result:Array<Dynamic> = [];
@@ -300,7 +302,7 @@ class Serialize {
             else if (_serializedMap.exists(value.id)) {
 
                 var info = _serializedMap.get(value.id);
-                
+
                 var clazz = Type.resolveClass(info.type);
                 if (clazz == null) {
                     backend.warning('Failed to resolve class for serialized type: ' + info.type);
@@ -374,7 +376,7 @@ class Serialize {
                         var val = deserializeValue(Reflect.field(info.props, fieldName));
                         Extensions.setProperty(instance, reusingInstance ? fieldName : fieldRealName, val);
                     }
-                    else if (!reusingInstance && instanceFields.exists('_default_' + fieldName)) {
+                    else if (!hasRootSerializable && !reusingInstance && instanceFields.exists('_default_' + fieldName)) {
                         // No value in data, but a default one for this class, use it
                         var val = Reflect.callMethod(instance, Reflect.field(instance, '_default_' + fieldName), []);
                         Extensions.setProperty(instance, fieldRealName, val);
@@ -400,7 +402,7 @@ class Serialize {
                 result.set(values[i], deserializeValue(values[i+1]));
                 i += 2;
             }
-            
+
             return result;
 
         }
@@ -413,7 +415,7 @@ class Serialize {
                 result.set(values[i], deserializeValue(values[i+1]));
                 i += 2;
             }
-            
+
             return result;
 
         }
@@ -479,7 +481,7 @@ class Serialize {
                 // Create enum instance without arguments
                 enumValue = Type.createEnum(enumType, constructName);
             }
-            
+
             return enumValue;
 
         }
