@@ -1,7 +1,7 @@
 package tracker;
 
-import tracker.Tracker.backend;
 import haxe.crypto.Md5;
+import tracker.Tracker.backend;
 
 class SaveModel {
 
@@ -34,7 +34,7 @@ class SaveModel {
     }
 
     /** Load data from the given key. */
-    public static function loadFromKey(model:Model, key:String):Bool {
+    public static function loadFromKey(model:Model, key:String, muteWarnings:Bool = false):Bool {
 
         if (busyKeys.indexOf(key) != -1) {
             throw 'Cannot load data from key $key because some work is being done on it';
@@ -52,12 +52,12 @@ class SaveModel {
         var data:String = null;
 
         if (id != 1 && id != 2) {
-            backend.warning('Failed to load save from key: $key (no existing save?)');
+            if (!muteWarnings) backend.warning('Failed to load save from key: $key (no existing save?)');
         }
         else {
             data = backend.readString('save_data_' + id + '_' + key);
             if (data == null) {
-                backend.warning('Failed to load save from key: $key/$id (corrupted save, try backups?)');
+                if (!muteWarnings) backend.warning('Failed to load save from key: $key/$id (corrupted save, try backups?)');
             }
         }
 
@@ -148,7 +148,7 @@ class SaveModel {
 
                         // Encode data
                         var encodedData = Utils.encodeChangesetData(data);
-                        
+
                         // Append first file
                         backend.appendString(saveDataKey1, encodedData);
                         // Mark this first file as the valid one on first id key
@@ -184,7 +184,7 @@ class SaveModel {
                 #if tracker_debug_save
                 trace('Save $key (full ${changeset.data.length})');//: ' + changeset.data);
                 #end
-                
+
                 (function(data:String, key:String) {
                     backend.runInBackground(function() {
 
@@ -218,14 +218,14 @@ class SaveModel {
                                 if (!sys.FileSystem.exists(storageDir)) {
                                     sys.FileSystem.createDirectory(storageDir);
                                 }
-    
+
                                 // Create hashed data
                                 var backupData = encodeHashedString(encodedData);
-    
+
                                 // Save backup 1
                                 var dataPath = backend.pathJoin([storageDir, backupKey1]);
                                 sys.io.File.saveContent(dataPath, backupData);
-    
+
                                 // Save backup 2
                                 dataPath = backend.pathJoin([storageDir, backupKey2]);
                                 sys.io.File.saveContent(dataPath, backupData);
@@ -247,7 +247,7 @@ class SaveModel {
                                 backend.error('Failed to remove busy key: $key (none in list)');
                             }
                         });
-                        
+
 
                     });
                 })(changeset.data, key);
