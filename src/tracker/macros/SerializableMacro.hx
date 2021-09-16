@@ -81,6 +81,9 @@ class SerializableMacro {
         var enumTypes = null;
         for (field in fields) {
 
+            if (field.access != null && field.access.indexOf(AStatic) != -1)
+                continue;
+
             switch (field.kind) {
 
                 case FVar(t, e), FProp(_, _, t, e):
