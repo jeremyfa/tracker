@@ -127,132 +127,12 @@ class SaveModel {
 
         // Start listening for changes to save them
         serializer.onChangeset(model, function(changeset) {
-
-            // Mark this key as busy
-            busyKeys.push(key);
-
-            if (changeset.append) {
-
-                // Append
-                //
-                #if tracker_debug_save
-                trace('Save $key (append ${changeset.data.length})');//: ' + changeset.data);
-                #end
-
-                (function(data:String, key:String) {
-                    backend.runInBackground(function() {
-
-                        // We use and update multiple files to ensure that, in case of crash or any other issue
-                        // when writing a file, it will fall back to the other one safely. If anything goes
-                        // wrong, there should always be a save file to fall back on.
-
-                        // Encode data
-                        var encodedData = Utils.encodeChangesetData(data);
-
-                        // Append first file
-                        backend.appendString(saveDataKey1, encodedData);
-                        // Mark this first file as the valid one on first id key
-                        backend.saveString(saveIdKey1, '1');
-                        // Mark this first file as the valid one on second id key
-                        backend.saveString(saveIdKey2, '1');
-
-                        // Append second file
-                        backend.appendString(saveDataKey2, encodedData);
-                        // Mark this second file as the valid one on first id key
-                        backend.saveString(saveIdKey1, '2');
-                        // Mark this second file as the valid one on second id key
-                        backend.saveString(saveIdKey2, '2');
-
-                        backend.runInMain(function() {
-                            // Pop busy key
-                            var busyIndex = busyKeys.indexOf(key);
-                            if (busyIndex != -1) {
-                                busyKeys.splice(busyIndex, 1);
-                            }
-                            else {
-                                backend.error('Failed to remove busy key: $key (none in list)');
-                            }
-                        });
-
-                    });
-                })(changeset.data, key);
-
-            } else {
-
-                // Compact
-                //
-                #if tracker_debug_save
-                trace('Save $key (full ${changeset.data.length})');//: ' + changeset.data);
-                #end
-
-                (function(data:String, key:String) {
-                    backend.runInBackground(function() {
-
-                        // We use and update multiple files to ensure that, in case of crash or any other issue
-                        // when writing a file, it will fall back to the other one safely. If anything goes
-                        // wrong, there should always be a save file to fall back on.
-
-                        // Encode data
-                        var encodedData = Utils.encodeChangesetData(data);
-
-                        // Save first file
-                        backend.saveString(saveDataKey1, encodedData);
-                        // Mark this first file as the valid one on first id key
-                        backend.saveString(saveIdKey1, '1');
-                        // Mark this first file as the valid one on second id key
-                        backend.saveString(saveIdKey2, '1');
-
-                        // Save second file
-                        backend.saveString(saveDataKey2, encodedData);
-                        // Mark this second file as the valid one on first id key
-                        backend.saveString(saveIdKey1, '2');
-                        // Mark this second file as the valid one on second id key
-                        backend.saveString(saveIdKey2, '2');
-
-                        #if sys
-                        // On sys targets, make an additional backup on a plain text file
-                        var storageDir = backend.storageDirectory();
-                        if (storageDir != null) {
-                            try {
-                                // Ensure directory exists
-                                if (!sys.FileSystem.exists(storageDir)) {
-                                    sys.FileSystem.createDirectory(storageDir);
-                                }
-
-                                // Create hashed data
-                                var backupData = encodeHashedString(encodedData);
-
-                                // Save backup 1
-                                var dataPath = backend.pathJoin([storageDir, backupKey1]);
-                                sys.io.File.saveContent(dataPath, backupData);
-
-                                // Save backup 2
-                                dataPath = backend.pathJoin([storageDir, backupKey2]);
-                                sys.io.File.saveContent(dataPath, backupData);
-                            }
-                            catch (e:Dynamic) {
-                                backend.error('Error when saving backup: $e');
-                            }
-                        }
-                        #end
-
-                        backend.runInMain(function() {
-
-                            // Pop busy key
-                            var busyIndex = busyKeys.indexOf(key);
-                            if (busyIndex != -1) {
-                                busyKeys.splice(busyIndex, 1);
-                            }
-                            else {
-                                backend.error('Failed to remove busy key: $key (none in list)');
-                            }
-                        });
-
-
-                    });
-                })(changeset.data, key);
-            }
-
+            _autoSaveAsKeyHandleChangeset(
+                changeset, key,
+                saveDataKey1, saveDataKey2,
+                saveIdKey1, saveIdKey2,
+                backupKey1, backupKey2
+            );
         });
 
         // Assign component
@@ -267,6 +147,203 @@ class SaveModel {
                 serializer = null;
             });
             #end
+        }
+
+    }
+
+    private static function _autoSaveAsKeyHandleChangeset(
+        changeset:SerializeChangeset, key:String,
+        saveDataKey1:String, saveDataKey2:String,
+        saveIdKey1:String, saveIdKey2:String,
+        backupKey1:String, backupKey2:String
+    ):Void {
+
+        // Mark this key as busy
+        busyKeys.push(key);
+
+        if (changeset.append) {
+
+            _autoSaveAsKeyAppend(
+                changeset.data, key,
+                saveDataKey1, saveDataKey2,
+                saveIdKey1, saveIdKey2
+            );
+
+        } else {
+
+            _autoSaveAsKeyCompact(
+                changeset.data, key,
+                saveDataKey1, saveDataKey2,
+                saveIdKey1, saveIdKey2,
+                backupKey1, backupKey2
+            );
+
+        }
+
+    }
+
+    private static function _autoSaveAsKeyAppend(
+        data:String, key:String,
+        saveDataKey1:String, saveDataKey2:String,
+        saveIdKey1:String, saveIdKey2:String
+    ):Void {
+
+        // Append
+        //
+        #if tracker_debug_save
+        trace('Save $key (append ${data.length})');
+        #end
+
+        backend.runInBackground(function() {
+            _autoSaveAsKeyAppendInBackground(
+                data, key,
+                saveDataKey1, saveDataKey2,
+                saveIdKey1, saveIdKey2
+            );
+        });
+
+    }
+
+    private static function _autoSaveAsKeyAppendInBackground(
+        data:String, key:String,
+        saveDataKey1:String, saveDataKey2:String,
+        saveIdKey1:String, saveIdKey2:String
+    ):Void {
+
+        // We use and update multiple files to ensure that, in case of crash or any other issue
+        // when writing a file, it will fall back to the other one safely. If anything goes
+        // wrong, there should always be a save file to fall back on.
+
+        // Encode data
+        var encodedData = Utils.encodeChangesetData(data);
+
+        // Append first file
+        backend.appendString(saveDataKey1, encodedData);
+        // Mark this first file as the valid one on first id key
+        backend.saveString(saveIdKey1, '1');
+        // Mark this first file as the valid one on second id key
+        backend.saveString(saveIdKey2, '1');
+
+        // Append second file
+        backend.appendString(saveDataKey2, encodedData);
+        // Mark this second file as the valid one on first id key
+        backend.saveString(saveIdKey1, '2');
+        // Mark this second file as the valid one on second id key
+        backend.saveString(saveIdKey2, '2');
+
+        backend.runInMain(function() {
+            _autoSaveAsKeyAppendBackInMain(key);
+        });
+
+    }
+
+    private static function _autoSaveAsKeyAppendBackInMain(key:String):Void {
+
+        // Pop busy key
+        var busyIndex = busyKeys.indexOf(key);
+        if (busyIndex != -1) {
+            busyKeys.splice(busyIndex, 1);
+        }
+        else {
+            backend.error('Failed to remove busy key: $key (none in list)');
+        }
+
+    }
+
+    private static function _autoSaveAsKeyCompact(
+        data:String, key:String,
+        saveDataKey1:String, saveDataKey2:String,
+        saveIdKey1:String, saveIdKey2:String,
+        backupKey1:String, backupKey2:String
+    ):Void {
+
+        // Compact
+        //
+        #if tracker_debug_save
+        trace('Save $key (full ${data.length})');
+        #end
+
+        backend.runInBackground(function() {
+            _autoSaveAsKeyCompactRunInBackground(
+                data, key,
+                saveDataKey1, saveDataKey2,
+                saveIdKey1, saveIdKey2,
+                backupKey1, backupKey2
+            );
+        });
+
+    }
+
+    private static function _autoSaveAsKeyCompactRunInBackground(
+        data:String, key:String,
+        saveDataKey1:String, saveDataKey2:String,
+        saveIdKey1:String, saveIdKey2:String,
+        backupKey1:String, backupKey2:String
+    ):Void {
+
+        // We use and update multiple files to ensure that, in case of crash or any other issue
+        // when writing a file, it will fall back to the other one safely. If anything goes
+        // wrong, there should always be a save file to fall back on.
+
+        // Encode data
+        var encodedData = Utils.encodeChangesetData(data);
+
+        // Save first file
+        backend.saveString(saveDataKey1, encodedData);
+        // Mark this first file as the valid one on first id key
+        backend.saveString(saveIdKey1, '1');
+        // Mark this first file as the valid one on second id key
+        backend.saveString(saveIdKey2, '1');
+
+        // Save second file
+        backend.saveString(saveDataKey2, encodedData);
+        // Mark this second file as the valid one on first id key
+        backend.saveString(saveIdKey1, '2');
+        // Mark this second file as the valid one on second id key
+        backend.saveString(saveIdKey2, '2');
+
+        #if sys
+        // On sys targets, make an additional backup on a plain text file
+        var storageDir = backend.storageDirectory();
+        if (storageDir != null) {
+            try {
+                // Ensure directory exists
+                if (!sys.FileSystem.exists(storageDir)) {
+                    sys.FileSystem.createDirectory(storageDir);
+                }
+
+                // Create hashed data
+                var backupData = encodeHashedString(encodedData);
+
+                // Save backup 1
+                var dataPath = backend.pathJoin([storageDir, backupKey1]);
+                sys.io.File.saveContent(dataPath, backupData);
+
+                // Save backup 2
+                dataPath = backend.pathJoin([storageDir, backupKey2]);
+                sys.io.File.saveContent(dataPath, backupData);
+            }
+            catch (e:Dynamic) {
+                backend.error('Error when saving backup: $e');
+            }
+        }
+        #end
+
+        backend.runInMain(function() {
+            _autoSaveAsKeyCompactBackInMain(key);
+        });
+
+    }
+
+    private static function _autoSaveAsKeyCompactBackInMain(key:String):Void {
+
+        // Pop busy key
+        var busyIndex = busyKeys.indexOf(key);
+        if (busyIndex != -1) {
+            busyKeys.splice(busyIndex, 1);
+        }
+        else {
+            backend.error('Failed to remove busy key: $key (none in list)');
         }
 
     }
