@@ -130,8 +130,8 @@ class SaveModel {
             _autoSaveAsKeyHandleChangeset(
                 changeset, key,
                 saveDataKey1, saveDataKey2,
-                saveIdKey1, saveIdKey2,
-                backupKey1, backupKey2
+                saveIdKey1, saveIdKey2 #if sys ,
+                backupKey1, backupKey2 #end
             );
         });
 
@@ -154,8 +154,8 @@ class SaveModel {
     private static function _autoSaveAsKeyHandleChangeset(
         changeset:SerializeChangeset, key:String,
         saveDataKey1:String, saveDataKey2:String,
-        saveIdKey1:String, saveIdKey2:String,
-        backupKey1:String, backupKey2:String
+        saveIdKey1:String, saveIdKey2:String #if sys ,
+        backupKey1:String, backupKey2:String #end
     ):Void {
 
         // Mark this key as busy
@@ -174,8 +174,8 @@ class SaveModel {
             _autoSaveAsKeyCompact(
                 changeset.data, key,
                 saveDataKey1, saveDataKey2,
-                saveIdKey1, saveIdKey2,
-                backupKey1, backupKey2
+                saveIdKey1, saveIdKey2 #if sys ,
+                backupKey1, backupKey2 #end
             );
 
         }
@@ -253,8 +253,8 @@ class SaveModel {
     private static function _autoSaveAsKeyCompact(
         data:String, key:String,
         saveDataKey1:String, saveDataKey2:String,
-        saveIdKey1:String, saveIdKey2:String,
-        backupKey1:String, backupKey2:String
+        saveIdKey1:String, saveIdKey2:String #if sys ,
+        backupKey1:String, backupKey2:String #end
     ):Void {
 
         // Compact
@@ -267,8 +267,8 @@ class SaveModel {
             _autoSaveAsKeyCompactRunInBackground(
                 data, key,
                 saveDataKey1, saveDataKey2,
-                saveIdKey1, saveIdKey2,
-                backupKey1, backupKey2
+                saveIdKey1, saveIdKey2 #if sys ,
+                backupKey1, backupKey2 #end
             );
         });
 
@@ -277,8 +277,8 @@ class SaveModel {
     private static function _autoSaveAsKeyCompactRunInBackground(
         data:String, key:String,
         saveDataKey1:String, saveDataKey2:String,
-        saveIdKey1:String, saveIdKey2:String,
-        backupKey1:String, backupKey2:String
+        saveIdKey1:String, saveIdKey2:String #if sys ,
+        backupKey1:String, backupKey2:String #end
     ):Void {
 
         // We use and update multiple files to ensure that, in case of crash or any other issue
