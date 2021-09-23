@@ -40,6 +40,9 @@ class Serialize {
 
     public static function deserialize(serializable:Serializable, data:String):Void {
 
+        var prevSerializedMap = _serializedMap;
+        var prevDeserializedMap = _deserializedMap;
+
         var u = new haxe.Unserializer(data);
         var serialized = u.unserialize();
         _serializedMap = u.unserialize();
@@ -47,8 +50,8 @@ class Serialize {
 
         var deserialized = deserializeValue(serialized, serializable);
 
-        _deserializedMap = null;
-        _serializedMap = null;
+        _serializedMap = prevSerializedMap;
+        _deserializedMap = prevDeserializedMap;
 
     }
 
@@ -383,7 +386,19 @@ class Serialize {
                     }
                 }
 
+                var prevSerializedMap = _serializedMap;
+                var prevDeserializedMap = _deserializedMap;
+                var prevDeserializedCacheMap = _deserializedCacheMap;
+
+                _serializedMap = null;
+                _deserializedMap = null;
+                _deserializedCacheMap = null;
+
                 @:privateAccess instance.didDeserialize();
+
+                _serializedMap = prevSerializedMap;
+                _deserializedMap = prevDeserializedMap;
+                _deserializedCacheMap = prevDeserializedCacheMap;
 
                 return instance;
 
