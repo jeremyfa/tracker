@@ -82,7 +82,7 @@ class Serialize {
         if (Std.isOfType(value, Entity)) {
             var entity:Entity = cast value;
             if (entity.destroyed) {
-                backend.error('Entity destroyed: $entity');
+                backend.error('Entity destroyed: $entity ${Type.getClassName(Type.getClass(entity))}');
                 return null;
             }
         }
