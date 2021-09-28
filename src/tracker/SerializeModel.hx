@@ -128,7 +128,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
 
         if (willCleanDestroyedTrackedModels) return;
         willCleanDestroyedTrackedModels = true;
-        
+
         backend.onceImmediate(function() {
 
             var keys = [];
@@ -231,7 +231,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
 
         // Remove model from map to ensure it is re-serialized
         serializedMap.remove(model._serializeId);
-        
+
         Serialize._serializedMap = serializedMap;
         Serialize._onCheckSerializable = function(serializable:Serializable) {
 
@@ -301,10 +301,22 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         Serialize._serializedMap = null;
         Serialize._deserializedCacheMap = null;
 
+        // Serialize new data to compare it with prev one
+        Serialize._serializedMap = new Map();
+        Serialize._deserializedMap = new Map();
+        Serialize._deserializedCacheMap = null;
+
+        Serialize.serializeValue(model);
+
+        var newDeserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
+        Serialize._serializedMap = null;
+        Serialize._deserializedMap = null;
+        Serialize._deserializedCacheMap = null;
+
         // Destroy previous model objects not used anymore (if any)
         // Use previous serialized map to perform the change
         for (k => item in prevDeserializedMap) {
-            if (deserializedMap.get(k) != item) {
+            if (newDeserializedMap.get(k) != item) {
                 if (Std.isOfType(item, Model)) {
                     var _model:Model = cast item;
                     if (_model != model) {
@@ -317,7 +329,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         }
 
         return true;
-        
+
     }
 
 }
