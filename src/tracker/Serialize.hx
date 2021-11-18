@@ -377,7 +377,7 @@ class Serialize {
                     if (hasSerialize && Reflect.hasField(info.props, fieldName)) {
                         // Value provided by data, use it
                         var val = deserializeValue(Reflect.field(info.props, fieldName));
-                        Extensions.setProperty(instance, reusingInstance ? fieldName : fieldRealName, val);
+                        Extensions.setProperty(instance, reusingInstance || hasRootSerializable ? fieldName : fieldRealName, val);
                     }
                     else if (!hasRootSerializable && !reusingInstance && instanceFields.exists('_default_' + fieldName)) {
                         // No value in data, but a default one for this class, use it
