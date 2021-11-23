@@ -38,7 +38,7 @@ class Serialize {
 
     }
 
-    public static function deserialize(serializable:Serializable, data:String):Void {
+    public static function deserialize(?serializable:Serializable, data:String):Dynamic {
 
         var prevSerializedMap = _serializedMap;
         var prevDeserializedMap = _deserializedMap;
@@ -52,6 +52,8 @@ class Serialize {
 
         _serializedMap = prevSerializedMap;
         _deserializedMap = prevDeserializedMap;
+
+        return deserialized;
 
     }
 
