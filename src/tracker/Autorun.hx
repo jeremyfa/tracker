@@ -150,7 +150,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         // There is no reason to bind to an already invalidated autorun.
         // (this should not happen when correctly used by the way)
         if (invalidated) return;
-        
+
         // Check if this autorun array is already bound
         var alreadyBound = false;
         if (boundAutorunArrays == null) {

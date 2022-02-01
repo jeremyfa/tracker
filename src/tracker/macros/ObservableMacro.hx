@@ -1,10 +1,13 @@
 package tracker.macros;
 
+import haxe.io.Path;
+import haxe.macro.Context;
+import haxe.macro.Expr;
 import haxe.macro.ExprTools;
 import haxe.macro.Printer;
 import haxe.macro.TypeTools;
-import haxe.macro.Context;
-import haxe.macro.Expr;
+import sys.FileSystem;
+import sys.io.File;
 
 using StringTools;
 
@@ -193,6 +196,11 @@ class ObservableMacro {
                             pos: field.pos
                         }];
 
+                        #if tracker_debug_entity_allocs
+                        var fieldPosInfos = Context.getPosInfos(field.pos);
+                        var fieldHaxePosInfos = _posInfosFromFileAndChar(fieldPosInfos.file, fieldPosInfos.min);
+                        #end
+
                         // Add getter
                         var getterField = {
                             pos: field.pos,
@@ -210,7 +218,7 @@ class ObservableMacro {
                                         // At first call, initialize autorun to auto-update this property
                                         if (this.$fieldComputeAutorunName == null) {
                                             var _that = this;
-                                            var _autorun = new tracker.Autorun(null);
+                                            var _autorun = new tracker.Autorun(null #if tracker_debug_entity_allocs , $v{fieldHaxePosInfos} #end);
                                             this.$fieldComputedOnceName = true;
                                             this.$fieldComputeAutorunName = _autorun;
                                             _autorun.onRun = function() {
@@ -489,7 +497,7 @@ class ObservableMacro {
         }
 
 #if (!display && !completion)
-        
+
         if (isProp) {
             // Original is already a property (may have getter/setter)
             if (get == 'get') {
@@ -597,7 +605,7 @@ class ObservableMacro {
                         emitObservedDirty(this, $v{hasSerializeMeta});
                     }
                     this.$emitFieldNameChange($i{fieldName}, prevValue);
-                    
+
                     var fieldAutoruns = this.$fieldNameAutoruns;
                     if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
@@ -634,7 +642,7 @@ class ObservableMacro {
                 expr: macro {
                     var value = this.$unobservedFieldName;
                     this.$emitFieldNameChange(value, value);
-                    
+
                     var fieldAutoruns = this.$fieldNameAutoruns;
                     if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
@@ -683,7 +691,7 @@ class ObservableMacro {
             meta: []
         }
         newFields.push(invalidateField);
-        
+
         newFields.push(field);
 
         var unobservedField = {
@@ -717,7 +725,7 @@ class ObservableMacro {
 
         // Add related events
         eventIndex = EventsMacro.createEventFields(eventField, newFields, existingFields, fieldsByName, dynamicDispatch, eventIndex, dispatcherName, inheritsFromEntity);
-    
+
         // In case it was initialized on this iteration
         _toRename = toRename;
 
@@ -766,6 +774,48 @@ class ObservableMacro {
             return hasKeepMeta ? 11 : 1;
         }
         return hasKeepMeta ? 10 : 0;
+
+    }
+
+    static var _fileCache:Map<String,String> = null;
+
+    static function _posInfosFromFileAndChar(file:String, char:Int):haxe.PosInfos {
+
+        if (_fileCache == null) {
+            _fileCache = new Map();
+        }
+
+        if (!Path.isAbsolute(file)) {
+            file = Path.normalize(Path.join([Sys.getCwd(), file]));
+        }
+
+        if (!_fileCache.exists(file)) {
+            var data:String = null;
+            if (FileSystem.exists(file) && !FileSystem.isDirectory(file)) {
+                data = File.getContent(file);
+            }
+            _fileCache.set(file, data);
+        }
+
+        var fileData:String = _fileCache.get(file);
+        if (fileData != null) {
+
+            var line:Int = 1;
+            for (i in 0...char) {
+                if (fileData.charCodeAt(i) == '\n'.code)
+                    line++;
+            }
+
+            return {
+                fileName: file,
+                lineNumber: line,
+                className: null,
+                methodName: null
+            };
+        }
+        else {
+            return null;
+        }
 
     }
 
