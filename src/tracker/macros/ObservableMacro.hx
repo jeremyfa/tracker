@@ -292,7 +292,8 @@ class ObservableMacro {
                                 name: ':keep',
                                 params: [],
                                 pos: field.pos
-                            }] : []
+                            }] : [],
+                            doc: field.doc
                         };
                         nextEventIndex = createObserveFields(
                             observeField, newFields, fields, fieldsByName,
