@@ -177,6 +177,10 @@ class ObservableMacro {
                         while (sanitizedName.endsWith('_')) sanitizedName = sanitizedName.substr(0, sanitizedName.length - 1);
                         var capitalName = sanitizedName.substr(0,1).toUpperCase() + sanitizedName.substr(1);
                         var computeFieldName = 'compute' + capitalName;
+                        #if (!display && !completion)
+                        var willListenFieldNameChange = 'willListen' + capitalName + 'Change';
+                        var getInWillListen = 'get_unobserved' + capitalName;
+                        #end
                         var fieldComputeAutorunName = 'computeAutorun' + capitalName;
                         var fieldComputedOnceName = 'computedOnce' + capitalName;
                         var unobservedFieldName = 'unobserved' + capitalName;
@@ -199,6 +203,38 @@ class ObservableMacro {
                         #if tracker_debug_entity_allocs
                         var fieldPosInfos = Context.getPosInfos(field.pos);
                         var fieldHaxePosInfos = _posInfosFromFileAndChar(fieldPosInfos.file, fieldPosInfos.min);
+                        #end
+
+                        #if (!display && !completion)
+                        // Add willListen
+                        var willListenField = {
+                            pos: field.pos,
+                            name: willListenFieldNameChange,
+                            kind: FFun({
+                                args: [],
+                                ret: macro :Void,
+                                expr: macro {
+                                    this.$getInWillListen();
+                                }
+                            }),
+                            access: [APrivate],
+                            doc: '',
+                            meta: hasKeepMeta ? [{
+                                name: ':keep',
+                                params: [],
+                                pos: field.pos
+                            }, {
+                                name: ':noCompletion',
+                                params: [],
+                                pos: field.pos
+                            }] : [{
+                                name: ':noCompletion',
+                                params: [],
+                                pos: field.pos
+                            }]
+                        }
+                        newFields.push(willListenField);
+                        fieldsByName.set(willListenFieldNameChange, true);
                         #end
 
                         // Add getter
