@@ -593,6 +593,8 @@ class ObservableMacro {
                 args: [],
                 ret: type,
                 expr: macro {
+                    var value = this.$unobservedFieldName;
+
                     // Bind invalidation if getting value
                     // inside an Autorun call
                     if (tracker.Autorun.current != null) {
@@ -610,7 +612,7 @@ class ObservableMacro {
                         }
                     }
 
-                    return this.$unobservedFieldName;
+                    return value;
                 }
             }),
             access: [APrivate],
