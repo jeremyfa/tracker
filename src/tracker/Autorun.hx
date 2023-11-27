@@ -114,7 +114,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     /** Ensures current `autorun` won't be affected by the code after this call.
         `reobserve()` should be called to restore previous state. */
-    #if !debug inline #end public static function unobserve():Void {
+    #if tracker_inline_unobserve inline #end public static function unobserve():Void {
 
         // Set current autorun to null
         prevCurrent.push(current);
@@ -124,7 +124,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     /** Resume observing values and resume affecting current `autorun` scope.
         This should be called after an `unobserve()` call. */
-    #if !debug inline #end public static function reobserve():Void {
+    #if tracker_inline_unobserve inline #end public static function reobserve():Void {
 
         Assert.assert(prevCurrent.length > 0, 'Cannot call reobserve() without calling unobserve() before.');
 
