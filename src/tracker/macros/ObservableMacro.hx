@@ -554,11 +554,7 @@ class ObservableMacro {
             kind: FProp('get', 'set', type),
             access: field.access,
             doc: field.doc,
-            meta: hasKeepMeta ? [{
-                name: ':keep',
-                params: [],
-                pos: field.pos
-            }] : []
+            meta: postProcessFieldMeta(field.meta)
         };
         newFields.push(propField);
 
@@ -813,6 +809,32 @@ class ObservableMacro {
             return hasKeepMeta ? 11 : 1;
         }
         return hasKeepMeta ? 10 : 0;
+
+    }
+
+    static function postProcessFieldMeta(meta:Metadata):Metadata {
+
+        if (meta == null)
+            return null;
+
+        var result = [];
+
+        for (item in meta) {
+            if (item.name == 'observe') {
+                // Skip
+            }
+            else if (item.name == 'serialize') {
+                // Skip
+            }
+            else if (item.name == 'compute') {
+                // Skip
+            }
+            else {
+                result.push(item);
+            }
+        }
+
+        return result;
 
     }
 
