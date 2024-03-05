@@ -133,6 +133,17 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     }
 
+    /** Unbinds and destroys current `autorun`. The name `cease()` has been chosed there
+        so that it is unlikely to collide with other more common names suchs as `stop`, `unbind` etc...
+        and should make it more recognizable, along with `observe()` and `unobserve()`.*/
+    #if tracker_inline_unobserve inline #end public static function cease():Void {
+
+        if (current != null) {
+            current.destroy();
+        }
+
+    }
+
     /** Executes the given function synchronously and ensures the
         current `autorun` scope won't be affected */
     public static function unobserved(func:Void->Void):Void {
