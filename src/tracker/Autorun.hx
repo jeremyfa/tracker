@@ -101,7 +101,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     inline public function invalidate():Void {
 
-        if (invalidated) return;
+        if (invalidated || destroyed) return;
         invalidated = true;
 
         unbindFromAllAutorunArrays();
@@ -136,10 +136,18 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
     /** Unbinds and destroys current `autorun`. The name `cease()` has been chosed there
         so that it is unlikely to collide with other more common names suchs as `stop`, `unbind` etc...
         and should make it more recognizable, along with `observe()` and `unobserve()`.*/
-    #if tracker_inline_unobserve inline #end public static function cease():Void {
+    public static function cease():Void {
 
         if (current != null) {
             current.destroy();
+            current = null;
+        }
+        else if (prevCurrent.length > 0) {
+            final lastCurrent = prevCurrent[prevCurrent.length - 1];
+            if (lastCurrent != null) {
+                lastCurrent.destroy();
+                prevCurrent[prevCurrent.length - 1] = null;
+            }
         }
 
     }
@@ -160,7 +168,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
         // There is no reason to bind to an already invalidated autorun.
         // (this should not happen when correctly used by the way)
-        if (invalidated) return;
+        if (invalidated || destroyed) return;
 
         // Check if this autorun array is already bound
         var alreadyBound = false;
