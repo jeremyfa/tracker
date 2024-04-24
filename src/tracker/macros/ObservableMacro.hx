@@ -516,6 +516,29 @@ class ObservableMacro {
         var offFieldNameChange = 'off' + capitalName + 'Change';
         var fieldNameAutoruns = fieldName + 'Autoruns';
         var fieldNameChange = fieldName + 'Change';
+        var fieldResolvedType = type != null ? TypeTools.followWithAbstracts(Context.resolveType(type, Context.currentPos())) : null;
+        var isValueType = switch fieldResolvedType {
+            case TAbstract(t, params):
+                switch t.toString() {
+                    case 'Int' | 'UInt' | 'Float' | 'Bool': true;
+                    case _: false;
+                }
+            case _: false;
+        };
+        var isArrayType = switch fieldResolvedType {
+            case TInst(t, params) if (t.toString() == 'Array'):
+                true;
+            case _:
+                false;
+        }
+
+        var prevValueEqualFieldName;
+        if (isArrayType) {
+            prevValueEqualFieldName = macro tracker.Utils.equalAny(prevValue, $i{fieldName});
+        }
+        else {
+            prevValueEqualFieldName = macro prevValue == $i{fieldName};
+        }
 
         if (expr != null) {
             // Compute type from expr
@@ -632,7 +655,7 @@ class ObservableMacro {
                 expr: macro {
                     var prevValue = this.$unobservedFieldName;
                     this.$unobservedFieldName = $i{fieldName};
-                    if (prevValue == $i{fieldName}) {
+                    if ($prevValueEqualFieldName) {
                         return $i{fieldName};
                     }
                     if (!observedDirty) {
@@ -655,7 +678,7 @@ class ObservableMacro {
                         tracker.Autorun.recycleAutorunArray(fieldAutoruns);
                     }
 
-                    return $i{fieldName}
+                    return $i{fieldName};
                 }
             }),
             access: [APrivate],

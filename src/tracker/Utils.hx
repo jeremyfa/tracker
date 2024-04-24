@@ -181,4 +181,13 @@ class Utils {
 
     }
 
+    /**
+     * Used as a workaround in targets like C++ to compare arrays
+     * because in some situation basic equality check won't work
+     * without typing the objects as `Any` or `Dynamic`.
+     */
+    public static function equalAny(a:Any, b:Any):Bool {
+        return a == b;
+    }
+
 }
