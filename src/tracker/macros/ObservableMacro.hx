@@ -493,6 +493,13 @@ class ObservableMacro {
             case FieldType.FVar(_type, _expr):
                 type = _type;
                 expr = _expr;
+                if (type == null && _expr != null) {
+                    switch _expr.expr {
+                        case ENew(t, params):
+                            type = TPath(t);
+                        case _:
+                    }
+                }
 
             case FieldType.FProp(_get, _set, _type, _expr):
                 get = _get;
@@ -500,6 +507,13 @@ class ObservableMacro {
                 type = _type;
                 expr = _expr;
                 isProp = true;
+                if (type == null && _expr != null) {
+                    switch _expr.expr {
+                        case ENew(t, params):
+                            type = TPath(t);
+                        case _:
+                    }
+                }
 
             default:
                 throw new Error("Invalid observed variable", field.pos);
@@ -516,24 +530,20 @@ class ObservableMacro {
         var offFieldNameChange = 'off' + capitalName + 'Change';
         var fieldNameAutoruns = fieldName + 'Autoruns';
         var fieldNameChange = fieldName + 'Change';
-        var fieldResolvedType = type != null ? TypeTools.followWithAbstracts(Context.resolveType(type, Context.currentPos())) : null;
-        var isValueType = switch fieldResolvedType {
-            case TAbstract(t, params):
-                switch t.toString() {
-                    case 'Int' | 'UInt' | 'Float' | 'Bool': true;
-                    case _: false;
+        var useEqualAny = switch type {
+            case null: true;
+            case TPath(p):
+                if (p.name == 'Array' || p.name == 'ReadOnlyArray' || p.name == 'Map' || p.name == 'ReadOnlyMap') {
+                    true;
                 }
-            case _: false;
-        };
-        var isArrayType = switch fieldResolvedType {
-            case TInst(t, params) if (t.toString() == 'Array'):
-                true;
-            case _:
-                false;
+                else {
+                    false;
+                }
+            case _: true;
         }
 
         var prevValueEqualFieldName;
-        if (isArrayType) {
+        if (useEqualAny) {
             prevValueEqualFieldName = macro tracker.Utils.equalAny(prevValue, $i{fieldName});
         }
         else {
