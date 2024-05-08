@@ -32,6 +32,7 @@ class ObservableMacro {
         // Check class fields
         var fieldsByName = new Map<String,Bool>();
         for (field in fields) {
+            @:privateAccess SerializableMacro.implySerializeMeta(field);
             fieldsByName.set(field.name, true);
         }
 
@@ -860,6 +861,9 @@ class ObservableMacro {
                 // Skip
             }
             else if (item.name == 'compute') {
+                // Skip
+            }
+            else if (item.name == 'share') {
                 // Skip
             }
             else {
