@@ -41,7 +41,7 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
 
     /**
      * Manually clear previous steps outside the given limit
-     * @param maxSteps 
+     * @param maxSteps
      */
     public function clearPreviousStepsOutsideLimit(maxSteps:Int) {
 
@@ -107,7 +107,11 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
         // Record one step if pending
         if (stepPending && ignoreSteps <= 0) {
             stepPending = false;
-            
+
+            #if tracker_debug_history
+            backend.success('Record history step');
+            #end
+
             if (currentData != null) {
                 while (steps.length - 1 > currentStep) {
                     steps.pop();
