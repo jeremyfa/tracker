@@ -27,6 +27,12 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
     var clearDelayAllowImmediateStep:Void->Void = null;
 
     /**
+     * The delay until a model serialization synchronization is triggered
+     * after calling `step()`. Useful to prevent too many steps being recorded.
+     */
+    public var stepSyncDelay:Float = 0.25;
+
+    /**
      * If provided, number of available steps will be limited to this value,
      * meaning older steps will be removed and not recoverable if reaching the limit.
      * Default is: store as many steps as possible, no limit (except available memory?)
@@ -109,7 +115,7 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
             stepPending = false;
 
             #if tracker_debug_history
-            backend.success('Record history step');
+            backend.success('History: record step');
             #end
 
             if (currentData != null) {
@@ -152,7 +158,7 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
         }
 
         stepPending = true;
-        backend.delay(this, 0.05, () -> {
+        backend.delay(this, stepSyncDelay, () -> {
             entity.serializer.synchronize();
             recordStepIfNeeded();
         });
@@ -185,6 +191,10 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
 
             applyCurrentStep();
 
+            #if tracker_debug_history
+            backend.success('History: undo');
+            #end
+
             emitUndo();
         }
 
@@ -203,6 +213,10 @@ class History extends #if tracker_ceramic ceramic.Entity #else Entity #end imple
             currentStep++;
 
             applyCurrentStep();
+
+            #if tracker_debug_history
+            backend.success('History: redo');
+            #end
 
             emitRedo();
         }
