@@ -14,6 +14,4 @@ interface Serializable {
 
     private function didDeserialize():Void;
 
-    private function serializeShouldDestroy():Bool;
-
 }

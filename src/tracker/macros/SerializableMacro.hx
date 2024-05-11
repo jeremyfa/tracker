@@ -84,8 +84,6 @@ class SerializableMacro {
             if (field.access != null && field.access.indexOf(AStatic) != -1)
                 continue;
 
-            implySerializeMeta(field);
-
             switch (field.kind) {
 
                 case FVar(t, e), FProp(_, _, t, e):
@@ -322,33 +320,6 @@ class SerializableMacro {
         #end
 
         return fields;
-
-    }
-
-    static function implySerializeMeta(field:Field):Void {
-
-        var hasSerialize = false;
-        var hasShare = false;
-        var sharePos = null;
-        for (meta in field.meta) {
-            if (meta.name == 'serialize') {
-                hasSerialize = true;
-                break;
-            }
-            else if (meta.name == 'share') {
-                hasShare = true;
-                sharePos = meta.pos;
-                if (hasSerialize)
-                    break;
-            }
-        }
-
-        if (!hasSerialize && hasShare) {
-            field.meta.push({
-                name: 'serialize',
-                pos: sharePos
-            });
-        }
 
     }
 

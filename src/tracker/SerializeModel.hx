@@ -32,11 +32,15 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
 
     function bindAsComponent() {
 
-        // Synchronize with real data at regular interval
-        backend.interval(this, checkInterval, synchronize);
+        if (checkInterval > 0) {
+            // Synchronize with real data at regular interval
+            backend.interval(this, checkInterval, synchronize);
+        }
 
-        // Compact at regular interval
-        backend.interval(this, compactInterval, compactIfNeeded);
+        if (compactInterval > 0) {
+            // Compact at regular interval
+            backend.interval(this, compactInterval, compactIfNeeded);
+        }
 
         // Track root model
         track(model);
@@ -314,7 +318,7 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         Serialize._deserializedCacheMap = null;
 
         // Destroy previous model objects not used anymore (if any)
-        // Use previous serialized map to perform the change
+        // Use previous serialized map to detect unused models
         for (k => item in prevDeserializedMap) {
             if (newDeserializedMap.get(k) != item) {
                 if (Std.isOfType(item, Model)) {

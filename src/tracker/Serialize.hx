@@ -15,6 +15,7 @@ import ceramic.Entity;
 
 @:allow(tracker.SerializeModel)
 @:allow(tracker.SaveModel)
+@:allow(tracker.ShareModel)
 class Serialize {
 
     public static var customHxSerialize:Dynamic->String = null;
@@ -274,7 +275,7 @@ class Serialize {
 
     }
 
-    static function deserializeValue(value:Dynamic, ?serializable:Serializable):Dynamic {
+    static function deserializeValue(value:Dynamic, ?serializable:Serializable, forceUpdateProps:Bool = false):Dynamic {
 
         if (value == null) return null;
         if (_serializedMap == null) return null;
@@ -302,7 +303,67 @@ class Serialize {
         else if (value.id != null) {
 
             if (_deserializedMap.exists(value.id)) {
-                return _deserializedMap.get(value.id);
+                var deserialized = _deserializedMap.get(value.id);
+
+                if (forceUpdateProps && value.props != null && value.type != null) {
+
+                    var clazz = Type.resolveClass(value.type);
+                    if (clazz == null) {
+                        backend.warning('Failed to resolve class for serialized type: ' + value.type);
+                        return null;
+                    }
+
+                    // Iterate over each serializable field and
+                    // check if there is a property to update with
+                    // out new props
+                    //
+                    var fieldsMeta = Meta.getFields(clazz);
+                    var prefixLen = 'unobserved'.length;
+                    var instanceFields = new Map<String,Bool>();
+                    for (field in Type.getInstanceFields(clazz)) {
+                        instanceFields.set(field, true);
+                    }
+                    var parentClazz = Type.getSuperClass(clazz);
+                    var parentFieldsMeta = null;
+                    while (parentClazz != null) {
+                        if (parentFieldsMeta == null)
+                            parentFieldsMeta = [];
+                        parentFieldsMeta.push(Meta.getFields(parentClazz));
+                        if (Type.getClassName(parentClazz) == 'tracker.Model') {
+                            break;
+                        }
+                        for (field in Type.getInstanceFields(parentClazz)) {
+                            instanceFields.set(field, true);
+                        }
+                        parentClazz = Type.getSuperClass(parentClazz);
+                    }
+
+                    for (fieldRealName in instanceFields.keys()) {
+
+                        var fieldInfo = Reflect.field(fieldsMeta, fieldRealName);
+                        if (fieldInfo == null && parentFieldsMeta != null) {
+                            for (i in 0...parentFieldsMeta.length) {
+                                fieldInfo = Reflect.field(parentFieldsMeta[i], fieldRealName);
+                                if (fieldInfo != null)
+                                    break;
+                            }
+                        }
+                        var hasSerialize = fieldInfo != null && Reflect.hasField(fieldInfo, 'serialize');
+
+                        var fieldName = fieldRealName;
+                        if (fieldName.startsWith('unobserved')) {
+                            fieldName = fieldName.charAt(prefixLen).toLowerCase() + fieldName.substr(prefixLen + 1);
+                        }
+
+                        if (hasSerialize && Reflect.hasField(value.props, fieldName)) {
+                            // Value provided by data, use it
+                            var val = deserializeValue(Reflect.field(value.props, fieldName));
+                            Extensions.setProperty(deserialized, fieldName, val);
+                        }
+                    }
+                }
+
+                return deserialized;
             }
             else if (_serializedMap.exists(value.id)) {
 

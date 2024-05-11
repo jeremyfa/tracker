@@ -14,6 +14,8 @@ class Model extends #if tracker_ceramic ceramic.Entity #else Entity #end impleme
 
     @component public var serializer:SerializeModel;
 
+    @component public var sharer:ShareModel;
+
 /// Properties
 
     public var dirty(default,set):Bool = false;
