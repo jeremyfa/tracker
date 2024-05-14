@@ -165,6 +165,16 @@ class ObservableMacro {
 
                 // @compute
 
+                var computePos = Context.currentPos();
+                for (meta in field.meta) {
+                    if (meta.name == 'compute') {
+                        if (meta.pos != null) {
+                            computePos = meta.pos;
+                            break;
+                        }
+                    }
+                }
+
                 if (!inheritsFromEntity) {
                     throw new Error("Computed variable is only allowed on " + entityTypeStr + " subclasses", field.pos);
                 }
@@ -197,7 +207,7 @@ class ObservableMacro {
                         field.meta = [{
                             name: ':noCompletion',
                             params: [],
-                            pos: field.pos
+                            pos: computePos
                         }];
 
                         #if tracker_debug_entity_allocs
@@ -208,7 +218,7 @@ class ObservableMacro {
                         #if (!display && !completion)
                         // Add willListen
                         var willListenField = {
-                            pos: field.pos,
+                            pos: computePos,
                             name: willListenFieldNameChange,
                             kind: FFun({
                                 args: [],
@@ -222,15 +232,15 @@ class ObservableMacro {
                             meta: hasKeepMeta ? [{
                                 name: ':keep',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }, {
                                 name: ':noCompletion',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }] : [{
                                 name: ':noCompletion',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }]
                         }
                         newFields.push(willListenField);
@@ -239,7 +249,7 @@ class ObservableMacro {
 
                         // Add getter
                         var getterField = {
-                            pos: field.pos,
+                            pos: computePos,
                             #if (!display && !completion)
                             name: 'get_unobserved' + capitalName,
                             #else
@@ -305,22 +315,22 @@ class ObservableMacro {
                             meta: hasKeepMeta ? [{
                                 name: ':keep',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }, {
                                 name: ':noCompletion',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }] : [{
                                 name: ':noCompletion',
                                 params: [],
-                                pos: field.pos
+                                pos: computePos
                             }]
                         };
                         newFields.push(getterField);
 
                         // Create observable field
                         var observeField = {
-                            pos: field.pos,
+                            pos: computePos,
                             name: fieldName,
                             kind: FProp('get', 'null', type, null),
                             access: fieldAccess,
@@ -344,7 +354,7 @@ class ObservableMacro {
 
                         // Add autorun field
                         var autorunField = {
-                            pos: field.pos,
+                            pos: computePos,
                             name: fieldComputeAutorunName,
                             kind: FVar(macro :tracker.Autorun, null),
                             access: [APrivate],
@@ -366,7 +376,7 @@ class ObservableMacro {
 
                         // Add computed once field
                         var computedOnceField = {
-                            pos: field.pos,
+                            pos: computePos,
                             name: fieldComputedOnceName,
                             kind: FVar(macro :Bool, macro false),
                             access: [APrivate],
