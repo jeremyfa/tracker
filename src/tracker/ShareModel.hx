@@ -309,7 +309,7 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
             };
         }
 
-        var serialized = Serialize.serializeValue(model);
+        Serialize.serializeValue(model);
 
         serializedMap = Serialize._serializedMap;
 
@@ -330,14 +330,14 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
                 }
             }
 
+            // Call done() callback if provided
+            if (done != null) done(shareItems);
+
             // Emit changeset
             if (shareItems.length > 0) {
                 emitChangeset({ items: shareItems });
             }
         });
-
-        // Call done() callback if provided
-        if (done != null) done(data);
 
     }
 
