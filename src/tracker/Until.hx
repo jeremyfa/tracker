@@ -17,6 +17,11 @@ class Until {
      * until(null, something == true, callback);
      * // Attach to another entity
      * until(entity, something == true, callback);
+     * // Add a timeout + a timeout callback
+     * until(
+     *     something == true, callback,
+     *     5.0, timeoutCallback
+     * );
      * ```
      */
     macro public static function until(exprs:Array<Expr>):ExprOf<tracker.Autorun> {
@@ -24,11 +29,22 @@ class Until {
         var condition;
         var callback;
         var instance;
+        var timeout;
+        var timeoutCallback;
 
-        if (exprs.length > 2) {
+        if (exprs.length == 3 || exprs.length == 5) {
             condition = exprs[1];
             callback = exprs[2];
             instance = exprs[0];
+
+            if (exprs.length == 5) {
+                timeout = exprs[3];
+                timeoutCallback = exprs[4];
+            }
+            else {
+                timeout = macro -1;
+                timeoutCallback = macro null;
+            }
         }
         else {
             condition = exprs[0];
@@ -45,17 +61,26 @@ class Until {
                 // a static, class method, let's not use it then
                 instance = macro null;
             }
+
+            if (exprs.length == 4) {
+                timeout = exprs[2];
+                timeoutCallback = exprs[3];
+            }
+            else {
+                timeout = macro -1;
+                timeoutCallback = macro null;
+            }
         }
 
         return macro @:privateAccess tracker.Until._until($instance, function() {
             return $condition;
-        }, $callback);
+        }, $callback, $timeout, $timeoutCallback);
 
     }
 
     #if !macro
 
-    static function _until(instance:Any, condition:()->Bool, callback:()->Void):tracker.Autorun {
+    static function _until(instance:Any, condition:()->Bool, callback:()->Void, timeout:Float = -1, ?timeoutCallback:()->Void):tracker.Autorun {
 
         var run = function() {
 
@@ -71,23 +96,40 @@ class Until {
 
         };
 
+        var untilAutorun = null;
+
         if (instance != null) {
 
             #if tracker_ceramic
             if (instance is ceramic.Entity) {
                 final ceramicEntity:ceramic.Entity = cast instance;
-                return ceramicEntity.autorun(run);
+                untilAutorun = ceramicEntity.autorun(run);
             }
             #else
             if (instance is Entity) {
                 final trackerEntity:Entity = cast instance;
-                return trackerEntity.autorun(run);
+                untilAutorun = trackerEntity.autorun(run);
             }
             #end
 
         }
 
-        return new Autorun(run);
+        if (untilAutorun == null) {
+            untilAutorun = new Autorun(run);
+        }
+
+        if (timeout > 0) {
+            Tracker.backend.delay(untilAutorun, timeout, () -> {
+                if (!untilAutorun.destroyed) {
+                    untilAutorun.destroy();
+                    if (timeoutCallback != null) {
+                        timeoutCallback();
+                    }
+                }
+            });
+        }
+
+        return untilAutorun;
 
     }
 
