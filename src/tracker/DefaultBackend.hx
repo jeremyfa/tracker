@@ -7,7 +7,7 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
     public function new() {
 
     }
-    
+
     var immediateCallbacks:Array<Void->Void> = [];
 
     var immediateCallbacksLen:Int = 0;
@@ -35,7 +35,7 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
     #if tracker_manual_flush public #end function flushImmediate():Bool {
 
         flushingImmediateCallbacks = true;
-        
+
         var didFlush = false;
 
         // Immediate callbacks
@@ -149,7 +149,7 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
     /**
      * Run the given callback in background, if there is any background thread available
      * on this backend. Run it on the main thread otherwise like any other code
-     * @param callback 
+     * @param callback
      */
     public function runInBackground(callback:Void->Void):Void {
 
@@ -159,7 +159,7 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     /**
      * Run the given callback in main thread
-     * @param callback 
+     * @param callback
      */
     public function runInMain(callback:Void->Void):Void {
 
@@ -187,14 +187,16 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
      * @param owner The entity that owns this delayed call
      * @param seconds The time in seconds of delay before the call
      * @param callback The callback to call
-     * @return Void->Void A callback to cancel the delayed call
+     * @return ()->Void A callback to cancel the delayed call
      */
     public function delay(owner:Entity, seconds:Float, callback:Void->Void):Void->Void {
 
         var timer = new haxe.Timer(Math.round(seconds * 1000));
         timer.run = function() {
             timer.stop();
-            callback();
+            if (owner == null || !owner.destroyed) {
+                callback();
+            }
         };
         return timer.stop;
 
