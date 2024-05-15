@@ -172,12 +172,19 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
      * @param owner The entity that owns this interval
      * @param seconds The time in seconds between each call
      * @param callback The callback to call
-     * @return Void->Void A callback to cancel the interval
+     * @return ()->Void A callback to cancel the interval
      */
     public function interval(owner:Entity, seconds:Float, callback:Void->Void):Void->Void {
 
         var timer = new haxe.Timer(Math.round(seconds * 1000));
-        timer.run = callback;
+        timer.run = function() {
+            if (owner == null || !owner.destroyed) {
+                callback();
+            }
+            else {
+                timer.stop();
+            }
+        };
         return timer.stop;
 
     }
