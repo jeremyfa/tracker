@@ -297,10 +297,27 @@ class SerializeModel extends #if tracker_ceramic ceramic.Entity #else Entity #en
         Serialize._serializedMap = decoded.serializedMap;
         Serialize._deserializedMap = new Map();
         Serialize._deserializedCacheMap = hotReload ? prevDeserializedMap : null;
+        Serialize._createdInstances = [];
 
         Serialize.deserializeValue(decoded.serialized, model);
 
         var deserializedMap:Map<String, Serializable> = Serialize._deserializedMap;
+
+        final createdInstances = Serialize._createdInstances;
+        Serialize._createdInstances = null;
+
+        for (i in 0...createdInstances.length) {
+            final instance = createdInstances[i];
+            final autorunMarked = Reflect.field(instance, '_autorunMarkedMethods');
+            if (autorunMarked != null) {
+                Reflect.callMethod(
+                    instance,
+                    autorunMarked,
+                    []
+                );
+            }
+        }
+
         Serialize._deserializedMap = null;
         Serialize._serializedMap = null;
         Serialize._deserializedCacheMap = null;

@@ -2,6 +2,7 @@ package tracker.macros;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.TypeTools;
 
 using StringTools;
 using haxe.macro.ExprTools;
@@ -32,17 +33,40 @@ class EntityMacro {
         }
         #end
 
+        var localClass = Context.getLocalClass().get();
         var fields = Context.getBuildFields();
         var classPath = Context.getLocalClass().toString();
+        var parentHold = localClass.superClass;
+        var parent = parentHold != null ? parentHold.t : null;
+        var parentConstructor = null;
+        while (parent != null) {
+
+            var clazz = parent.get();
+
+            if (parentConstructor == null) {
+                parentConstructor = clazz.constructor?.get();
+            }
+
+            parentHold = clazz.superClass;
+            parent = parentHold != null ? parentHold.t : null;
+        }
 
         var newFields:Array<Field> = [];
 
         var constructor = null;
+        var autorunMarked = null;
         for (field in fields) {
             if (field.name == 'new') {
                 constructor = field;
+                #if (display || completion)
                 break;
+                #end
             }
+            #if (!display && !completion)
+            else if (field.name == '_autorunMarkedMethods') {
+                autorunMarked = field;
+            }
+            #end
         }
 
         var componentFields = [];
@@ -59,8 +83,8 @@ class EntityMacro {
             }
             #end
 
-            var hasMeta = hasOwnerOrComponentMeta(field);
-            if (hasMeta == 1 || hasMeta == 2 || hasMeta == 3) { // has owner or component meta
+            var hasMeta = hasRelevantMeta(field);
+            if (hasMeta.bool(0) || hasMeta.bool(1)) { // has owner or component meta
                 if (ownFields == null) {
                     ownFields = [];
                 }
@@ -69,6 +93,99 @@ class EntityMacro {
             }
             else {
                 newFields.push(field);
+            }
+
+            if (hasMeta.bool(3)) { // has autorun meta
+
+                switch(field.kind) {
+                    case FieldType.FFun(f):
+                        var fieldName = field.name;
+
+                        constructor = createConstructorIfNeeded(constructor, parentConstructor, newFields, classPath);
+
+                        if (autorunMarked == null) {
+                            autorunMarked = {
+                                name: '_autorunMarkedMethods',
+                                doc: null,
+                                meta: [{
+                                    name: ':noCompletion',
+                                    params: [],
+                                    pos: Context.currentPos()
+                                }],
+                                access: [AOverride],
+                                kind: FFun({
+                                    params: [],
+                                    args: [],
+                                    ret: null,
+                                    expr: macro {
+                                        if (destroyed) return;
+                                        super._autorunMarkedMethods();
+                                    }
+                                }),
+                                pos: Context.currentPos()
+                            };
+
+                            newFields.push(autorunMarked);
+                        }
+
+                        // Add autorun calls in constructor tail
+                        switch (constructor.kind) {
+                            case FFun(fn):
+
+                                // Ensure expr is surrounded with a block
+                                switch (fn.expr.expr) {
+                                    case EBlock(exprs):
+                                    default:
+                                        fn.expr.expr = EBlock([{
+                                            pos: fn.expr.pos,
+                                            expr: fn.expr.expr
+                                        }]);
+                                }
+
+                                // Add our expression
+                                switch (fn.expr.expr) {
+                                    case EBlock(exprs):
+                                        fn.expr.expr = EBlock(exprs.concat([
+                                            macro this.autorun(this.$fieldName)
+                                        ]));
+                                    default:
+                                }
+
+                            default:
+                                throw new Error("Invalid constructor", field.pos);
+                        }
+
+                        // Add autorun calls in _autorunMarkedMethods()
+                        switch (autorunMarked.kind) {
+                            case FFun(fn):
+
+                                // Ensure expr is surrounded with a block
+                                switch (fn.expr.expr) {
+                                    case EBlock(exprs):
+                                    default:
+                                        fn.expr.expr = EBlock([{
+                                            pos: fn.expr.pos,
+                                            expr: fn.expr.expr
+                                        }]);
+                                }
+
+                                // Add our expression
+                                switch (fn.expr.expr) {
+                                    case EBlock(exprs):
+                                        fn.expr.expr = EBlock(exprs.concat([
+                                            macro this.autorun(this.$fieldName)
+                                        ]));
+                                    default:
+                                }
+
+                            default:
+                                throw new Error("Invalid constructor", field.pos);
+                        }
+
+                    default:
+                        throw new Error("Invalid autorun meta usage", field.pos);
+                }
+
             }
         }
 
@@ -231,6 +348,71 @@ class EntityMacro {
 
     }
 
+    static function createConstructorIfNeeded(constructor:Field, parentConstructor:haxe.macro.Type.ClassField, newFields:Array<Field>, classPath:String):Field {
+
+        if (constructor == null) {
+
+            // Implicit constructor override because it is needed to initialize components
+
+            var constructorArgs = [];
+            var constructorExpr = new StringBuf();
+            constructorExpr.add('{ super(');
+
+            if (parentConstructor != null) {
+
+                var didResolveConstructorField = false;
+                try {
+                    switch TypeTools.follow(parentConstructor.type) {
+                        case TFun(args, ret):
+                            didResolveConstructorField = true;
+                            if (args != null) {
+                                for (a in 0...args.length) {
+                                    var arg = args[a];
+                                    constructorArgs.push({
+                                        name: arg.name,
+                                        opt: arg.opt,
+                                        type: arg.t != null ? TypeTools.toComplexType(arg.t) : null
+                                    });
+                                    if (a > 0) {
+                                        constructorExpr.add(', ');
+                                    }
+                                    constructorExpr.add(arg.name);
+                                }
+                            }
+                        default:
+                    }
+                }
+                catch (e:Dynamic) {
+                    didResolveConstructorField = false;
+                }
+
+                if (!didResolveConstructorField) {
+                    Context.warning('Failed to resolve parent constructor field for class ' + classPath, Context.currentPos());
+                }
+            }
+            constructorExpr.add('); }');
+
+            constructor = {
+                name: 'new',
+                doc: null,
+                meta: [],
+                access: [APublic],
+                kind: FFun({
+                    params: [],
+                    args: constructorArgs,
+                    ret: null,
+                    expr: Context.parse(constructorExpr.toString(), Context.currentPos())
+                }),
+                pos: Context.currentPos()
+            };
+
+            newFields.push(constructor);
+        }
+
+        return constructor;
+
+    }
+
     /** Replace `super.destroy();`
         with `{ _lifecycleState = -1; super.destroy(); }`
         */
@@ -250,34 +432,27 @@ class EntityMacro {
 
     }
 
-    static function hasOwnerOrComponentMeta(field:Field):Int {
+    static function hasRelevantMeta(field:Field):Flags {
 
         if (field.meta == null || field.meta.length == 0) return 0;
 
-        var hasComponentMeta = false;
-        var hasOwnerMeta = false;
+        var flags:Flags = 0;
 
         for (meta in field.meta) {
             if (meta.name == 'component') {
-                hasComponentMeta = true;
+                flags.setBool(0, true);
             }
+            #if (!completion && !display)
             else if (meta.name == 'owner') {
-                hasOwnerMeta = true;
+                flags.setBool(1, true);
             }
+            else if (meta.name == 'autorun') {
+                flags.setBool(3, true);
+            }
+            #end
         }
 
-        if (hasComponentMeta && hasOwnerMeta) {
-            return 3;
-        }
-        else if (hasComponentMeta) {
-            return 2;
-        }
-        else if (hasOwnerMeta) {
-            return 1;
-        }
-        else {
-            return 0;
-        }
+        return flags;
 
     }
 

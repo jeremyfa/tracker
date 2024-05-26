@@ -20,8 +20,7 @@ enum abstract ShareItemAction(Int) from Int to Int {
 
 }
 
-@:structInit
-class ShareItem {
+#if tracker_share_item_struct typedef ShareItem = #else @:structInit class ShareItem #end {
 
     public var id:String;
 

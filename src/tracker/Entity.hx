@@ -292,6 +292,17 @@ class Entity implements Events {
 
     }
 
+    /**
+     * Call autorun() on all methods marked with `@autorun` meta.
+     * This is not supposed to be called by user code unless
+     * initialising an object without calling its constructor
+     */
+    @:noCompletion function _autorunMarkedMethods() {
+
+        // Override in subclasses
+
+    }
+
     function checkAutoruns(_):Void {
 
         for (i in 0...autoruns.length) {

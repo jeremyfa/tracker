@@ -345,9 +345,13 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
 
         Serialize._serializedMap = serializedMap;
         Serialize._deserializedMap = deserializedMap;
+        Serialize._createdInstances = [];
 
+        #if !tracker_debug_receive_shared_stack
         try {
+        #end
             for (item in changeset.items) {
+
                 switch item.action {
 
                     case SET | UPDATE:
@@ -359,6 +363,7 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
                                 type: item.type,
                                 props: {}
                             };
+                            serializedMap.set(item.id, serializedData);
                         }
                         if (item.props != null) {
                             for (field in Reflect.fields(item.props)) {
@@ -380,10 +385,13 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
                     case SET:
                         var serializable = deserializedMap.get(item.id);
                         var serializedData = serializedMap.get(item.id);
-                        Serialize.deserializeValue(
+                        var newSerializable = Serialize.deserializeValue(
                             serializedData,
                             serializable, true
                         );
+                        if (serializable != newSerializable && newSerializable != null && Std.isOfType(newSerializable, Model)) {
+                            track(cast newSerializable);
+                        }
 
                     case UPDATE:
                         var serializable = deserializedMap.get(item.id);
@@ -391,16 +399,20 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
                         var changedProps:Dynamic = {};
                         if (item.props != null) {
                             for (field in Reflect.fields(item.props)) {
-                                Reflect.setField(changedProps, field, Reflect.field(serializedData, field));
+                                var value = Reflect.field(serializedData.props, field);
+                                Reflect.setField(changedProps, field, value);
                             }
                         }
-                        Serialize.deserializeValue({
+                        var newSerializable = Serialize.deserializeValue({
                                 id: item.id,
                                 type: serializedData.type,
                                 props: changedProps
                             },
                             serializable, true
                         );
+                        if (serializable != newSerializable && newSerializable != null && Std.isOfType(newSerializable, Model)) {
+                            track(cast newSerializable);
+                        }
 
                     case DESTROY:
                         var serializable = deserializedMap.get(item.id);
@@ -415,9 +427,27 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
                         }
                 }
             }
+
+        #if !tracker_debug_receive_shared_stack
         }
         catch (e:Dynamic) {
             backend.error('Failed to receive shared data: ' + e);
+        }
+        #end
+
+        final createdInstances = Serialize._createdInstances;
+        Serialize._createdInstances = null;
+
+        for (i in 0...createdInstances.length) {
+            final instance = createdInstances[i];
+            final autorunMarked = Reflect.field(instance, '_autorunMarkedMethods');
+            if (autorunMarked != null) {
+                Reflect.callMethod(
+                    instance,
+                    autorunMarked,
+                    []
+                );
+            }
         }
 
         Serialize._serializedMap = null;

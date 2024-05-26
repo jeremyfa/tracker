@@ -66,6 +66,8 @@ class Serialize {
 
     static var _deserializedCacheMap:Map<String,Serializable> = null;
 
+    static var _createdInstances:Array<Serializable> = null;
+
     static var _onAddSerializable:Serializable->Void = null;
 
     static var _onCheckSerializable:Serializable->Void = null;
@@ -382,12 +384,18 @@ class Serialize {
                 // Create instance (without calling constructor)
                 var instance:Serializable = null;
                 var reusingInstance = false;
+                var instanceJustCreated = false;
+                var toAutorun:Array<String> = null;
                 if (_deserializedCacheMap != null && _deserializedCacheMap.exists(value.id)) {
                     instance = _deserializedCacheMap.get(value.id);
                     reusingInstance = true;
                 }
+                else if (serializable != null && Type.getClass(serializable) == clazz) {
+                    instance = serializable;
+                }
                 else {
-                    instance = serializable != null && Type.getClass(serializable) == clazz ? serializable : Type.createEmptyInstance(clazz);
+                    instance = Type.createEmptyInstance(clazz);
+                    instanceJustCreated = true;
                 }
 
                 Assert.assert(instance != null, 'Created empty instance should not be null');
@@ -452,16 +460,37 @@ class Serialize {
                 var prevSerializedMap = _serializedMap;
                 var prevDeserializedMap = _deserializedMap;
                 var prevDeserializedCacheMap = _deserializedCacheMap;
+                var prevCreatedInstances = _createdInstances;
 
                 _serializedMap = null;
                 _deserializedMap = null;
                 _deserializedCacheMap = null;
+                _createdInstances = null;
 
                 @:privateAccess instance.didDeserialize();
+
+                if (instanceJustCreated) {
+                    if (prevCreatedInstances != null) {
+                        prevCreatedInstances.push(instance);
+                    }
+                    else {
+                        final autorunMarked = Reflect.field(instance, '_autorunMarkedMethods');
+                        if (autorunMarked != null) {
+                            backend.onceImmediate(() -> {
+                                Reflect.callMethod(
+                                    instance,
+                                    autorunMarked,
+                                    []
+                                );
+                            });
+                        }
+                    }
+                }
 
                 _serializedMap = prevSerializedMap;
                 _deserializedMap = prevDeserializedMap;
                 _deserializedCacheMap = prevDeserializedCacheMap;
+                _createdInstances = prevCreatedInstances;
 
                 return instance;
 
