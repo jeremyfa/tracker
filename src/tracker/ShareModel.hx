@@ -64,6 +64,16 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
 
     var dirty:Bool = true;
 
+    var paused:Int = 0;
+
+    public function pause() {
+        paused++;
+    }
+
+    public function resume() {
+        paused--;
+    }
+
     inline function track(model:Model) {
 
         if (!model.destroyed && !trackedModels.exists(model._serializeId)) {
@@ -187,7 +197,7 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
     /** Synchronize (expected to be called at regular intervals or when something important needs to be serialized) */
     public function synchronize() {
 
-        if (!dirty) return;
+        if (!dirty || paused > 0) return;
         dirty = false;
 
         var shareItems:Array<ShareItem> = [];
