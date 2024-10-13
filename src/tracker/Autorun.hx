@@ -22,6 +22,8 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     @:noCompletion public var afterRun:Void->Void = null;
 
+    @:noCompletion public var owner:#if tracker_ceramic ceramic.Entity #else Entity #end = null;
+
     var boundAutorunArrays:Array<Array<Autorun>> = null;
 
     public var invalidated(default,null):Bool = false;
@@ -72,7 +74,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
     public function run():Void {
 
         // Nothing to do if destroyed
-        if (destroyed) return;
+        if (destroyed || (owner != null && owner.destroyed)) return;
 
         // We are not invalidated anymore as we are resetting state
         invalidated = false;
