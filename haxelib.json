@@ -2,10 +2,10 @@
     "name": "tracker",
     "url" : "https://github.com/jeremyfa/tracker/",
     "license": "MIT",
-    "tags": ["tracker"],
+    "tags": ["tracker", "reactive", "observable", "state", "model", "serialization", "events"],
     "description": "A set of tools to manage events, observable and serializable properties, autorunable functions and data models in general.",
-    "version": "0.1.1",
-    "releasenote": "Initial working project",
+    "version": "1.0.0",
+    "releasenote": "Fully working version, tested in production",
     "contributors": ["jeremyfa"],
     "classPath": "src/",
     "dependencies": {}
