@@ -260,7 +260,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
             }
         }
 
-        recycleAutorunArray(autorunArray);
+        inline recycleAutorunArray(autorunArray);
 
     }
 
