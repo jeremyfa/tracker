@@ -687,15 +687,7 @@ class ObservableMacro {
                     var fieldAutoruns = this.$fieldNameAutoruns;
                     if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
-
-                        for (i in 0...fieldAutoruns.length) {
-                            var autorun = fieldAutoruns[i];
-                            if (autorun != null) {
-                                autorun.invalidate();
-                            }
-                        }
-
-                        tracker.Autorun.recycleAutorunArray(fieldAutoruns);
+                        tracker.Autorun.invalidateAutorunArray(fieldAutoruns);
                     }
 
                     return $i{fieldName};
@@ -724,15 +716,7 @@ class ObservableMacro {
                     var fieldAutoruns = this.$fieldNameAutoruns;
                     if (fieldAutoruns != null) {
                         this.$fieldNameAutoruns = null;
-
-                        for (i in 0...fieldAutoruns.length) {
-                            var autorun = fieldAutoruns[i];
-                            if (autorun != null) {
-                                autorun.invalidate();
-                            }
-                        }
-
-                        tracker.Autorun.recycleAutorunArray(fieldAutoruns);
+                        tracker.Autorun.invalidateAutorunArray(fieldAutoruns);
                     }
                 }
             }),

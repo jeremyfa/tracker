@@ -249,6 +249,21 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     }
 
+/// More static helpers
+
+    public static function invalidateAutorunArray(autorunArray:Array<Autorun>):Void {
+
+        for (i in 0...autorunArray.length) {
+            var autorun = autorunArray[i];
+            if (autorun != null) {
+                autorun.invalidate();
+            }
+        }
+
+        recycleAutorunArray(autorunArray);
+
+    }
+
 /// Recycling autorun arrays
 
     static var _autorunArrays:Array<Array<Autorun>> = [];
