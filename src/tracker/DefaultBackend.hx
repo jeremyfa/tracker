@@ -14,6 +14,10 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     var flushingImmediateCallbacks:Bool = false;
 
+    #if (tracker_web_immediate && !tracker_manual_flush)
+    var flushImmediateScheduled:Bool = false;
+    #end
+
     /**
      * Schedule immediate callback.
      * @param handleImmediate the callback to schedule
@@ -23,9 +27,19 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
         immediateCallbacks[immediateCallbacksLen++] = handleImmediate;
 
         #if !tracker_manual_flush
+        #if tracker_web_immediate
+        if (!flushImmediateScheduled) {
+            flushImmediateScheduled = true;
+            js.Syntax.code("queueMicrotask({0})", () -> {
+                flushImmediate();
+                flushImmediateScheduled = false;
+            });
+        }
+        #else
         if (!flushingImmediateCallbacks) {
             flushImmediate();
         }
+        #end
         #end
 
     }
@@ -68,7 +82,9 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     }
 
+    #if !tracker_web_storage
     var stringData:Map<String,String> = new Map();
+    #end
 
     /**
      * Read a string for the given key
@@ -77,7 +93,11 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
      */
     public function readString(key:String):String {
 
+        #if tracker_web_storage
+        return webReadString(key);
+        #else
         return stringData.get(key);
+        #end
 
     }
 
@@ -89,9 +109,13 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
      */
     public function saveString(key:String, str:String):Bool {
 
+        #if tracker_web_storage
+        return webSaveString(key, str);
+        #else
         stringData.set(key, str);
 
         return true;
+        #end
 
     }
 
@@ -104,6 +128,9 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
      */
     public function appendString(key:String, str:String):Bool {
 
+        #if tracker_web_storage
+        return webAppendString(key, str);
+        #else
         var existingStr = stringData.get(key);
         if (existingStr != null) {
             stringData.set(key, existingStr + str);
@@ -113,8 +140,78 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
         }
 
         return true;
+        #end
 
     }
+
+    #if tracker_web_storage
+
+    function webSaveString(key:String, str:String):Bool {
+
+        try {
+            var storage = js.Browser.window.localStorage;
+            if (storage == null) {
+                error('Cannot save string: localStorage not supported on this browser');
+                return false;
+            }
+
+            storage.setItem(key, HashedString.encode(str));
+        }
+        catch (e:Dynamic) {
+            error('Failed to save string (key=$key): ' + e);
+            return false;
+        }
+
+        return true;
+
+    }
+
+    function webAppendString(key:String, str:String):Bool {
+
+        try {
+            var storage = js.Browser.window.localStorage;
+            if (storage == null) {
+                error('Cannot append string: localStorage not supported on this browser');
+                return false;
+            }
+
+            var existing = storage.getItem(key);
+            if (existing == null) {
+                storage.setItem(key, HashedString.encode(str));
+            }
+            else {
+                storage.setItem(key, existing + HashedString.encode(str));
+            }
+        }
+        catch (e:Dynamic) {
+            error('Failed to append string (key=$key): ' + e);
+            return false;
+        }
+
+        return true;
+
+    }
+
+    function webReadString(key:String):String {
+
+        try {
+            var storage = js.Browser.window.localStorage;
+            if (storage == null) {
+                error('Cannot read string: localStorage not supported on this browser');
+                return null;
+            }
+
+            var str = storage.getItem(key);
+            return str != null ? HashedString.decode(str) : null;
+        }
+        catch (e:Dynamic) {
+            error('Failed to read string (key=$key): ' + e);
+            return null;
+        }
+
+    }
+
+    #end
 
     /**
      * Log a warning message
