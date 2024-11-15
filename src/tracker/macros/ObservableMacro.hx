@@ -13,7 +13,18 @@ using StringTools;
 
 class ObservableMacro {
 
+    @:persistent static var _observableMetas:Map<String,Bool> = null;
+
     static var _toRename:Map<String,String> = null;
+
+    static public function addObservableMeta(meta:String) {
+
+        if (_observableMetas == null)
+            _observableMetas = new Map();
+
+        _observableMetas.set(meta, true);
+
+    }
 
     macro static public function build():Array<Field> {
 
@@ -820,6 +831,9 @@ class ObservableMacro {
             }
             else if (meta.name == ':keep') {
                 hasKeepMeta = true;
+            }
+            else if (_observableMetas != null && _observableMetas.exists(meta.name)) {
+                hasObserveMeta = true;
             }
         }
 
