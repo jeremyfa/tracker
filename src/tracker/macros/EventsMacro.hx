@@ -102,7 +102,14 @@ class EventsMacro {
 
         for (field in fields) {
             if (hasEventMeta(field)) {
-                nextEventIndex = createEventFields(field, newFields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity);
+                nextEventIndex = createEventFields(
+                    field, newFields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity,
+                    #if (display || completion)
+                    false
+                    #else
+                    hasSynchronizedMeta(field)
+                    #end
+                );
             }
             else {
                 // Keep field
@@ -192,7 +199,7 @@ class EventsMacro {
 
     @:allow(tracker.macros.ObservableMacro)
     @:allow(tracker.macros.SerializableMacro)
-    static function createEventFields(field:Field, newFields:Array<Field>, existingFields:Array<Field>, fieldsByName:Map<String,Bool>, dynamicDispatch:Bool, eventIndex:Int, dispatcherName:String, inheritsFromEntity:Bool):Int {
+    static function createEventFields(field:Field, newFields:Array<Field>, existingFields:Array<Field>, fieldsByName:Map<String,Bool>, dynamicDispatch:Bool, eventIndex:Int, dispatcherName:String, inheritsFromEntity:Bool, threadSafe:Bool):Int {
 
         // Still allow a field to be generated with static dispatch, even
         // if default is to generate dynamic dispatch
@@ -206,6 +213,10 @@ class EventsMacro {
         var entityType = TrackerMacro.entityType;
         if (entityType == null)
             entityType = macro :tracker.Entity;
+        #end
+
+        #if (!tracker_synchronized || completion || display)
+        threadSafe = false;
         #end
 
         switch (field.kind) {
@@ -241,6 +252,7 @@ class EventsMacro {
                 var offName = 'off' + capitalName;
                 var emitName = 'emit' + capitalName;
                 var listensName = 'listens' + capitalName;
+                var mutexName = 'mutex' + capitalName;
                 var doc = field.doc;
                 var origDoc = field.doc;
                 if (doc == null || doc == '') {
@@ -256,6 +268,10 @@ class EventsMacro {
                     }
                 }
 
+                var lock = macro null;
+                var unlock = macro null;
+                var lockable = macro false;
+
 #if (!display && !completion)
 
                 var cbOnArray = '__cbOn' + capitalName;
@@ -270,6 +286,12 @@ class EventsMacro {
                 var cbOnPosArray = '__cbOnPos' + capitalName;
                 var cbOncePosArray = '__cbOncePos' + capitalName;
                 #end
+
+                if (threadSafe) {
+                    lock = macro this.$mutexName.acquire();
+                    unlock = macro this.$mutexName.release();
+                    lockable = macro true;
+                }
 
                 if (!dynamicDispatch) {
 
@@ -505,6 +527,27 @@ class EventsMacro {
                     }
                 }
 
+                if (threadSafe) {
+                    var mutexField = {
+                        pos: field.pos,
+                        name: mutexName,
+                        kind: FVar(TPath({
+                                pack: ['tracker'],
+                                name: 'RecursiveMutex'
+                            }),
+                            macro new tracker.RecursiveMutex()
+                        ),
+                        access: [APrivate],
+                        doc: doc,
+                        meta: [{
+                            name: ':noCompletion',
+                            params: [],
+                            pos: field.pos
+                        }]
+                    };
+                    newFields.push(mutexField);
+                }
+
                 var fnCanEmit = 'canEmit' + capitalName;
 
                 var trackOnOwner = macro null;
@@ -672,9 +715,12 @@ class EventsMacro {
                             ret: handlerType,
                             expr: macro {
 #if (!display && !completion)
+                                $lock;
                                 $willEmit;
                                 $didEmit;
-                                return this.$dispatcherName.wrapEmit($v{eventIndex}, $v{handlerNumArgs});
+                                final res = this.$dispatcherName.wrapEmit($v{eventIndex}, $v{handlerNumArgs});
+                                $unlock;
+                                return res;
 #else
                                 return null;
 #end
@@ -721,8 +767,11 @@ class EventsMacro {
                             ], macro :Void),
                             expr: macro {
 #if (!display && !completion)
+                                $lock;
                                 $willListen;
-                                return this.$dispatcherName.wrapOn($v{eventIndex});
+                                final res = this.$dispatcherName.wrapOn($v{eventIndex});
+                                $unlock;
+                                return res;
 #else
                                 return null;
 #end
@@ -769,8 +818,11 @@ class EventsMacro {
                             ], macro :Void),
                             expr: macro {
 #if (!display && !completion)
+                                $lock;
                                 $willListen;
-                                return this.$dispatcherName.wrapOnce($v{eventIndex});
+                                final res = this.$dispatcherName.wrapOnce($v{eventIndex});
+                                $unlock;
+                                return res;
 #else
                                 return null;
 #end
@@ -814,7 +866,10 @@ class EventsMacro {
                                 handlerType
                             ], macro :Void),
                             expr: macro {
-                                return this.$dispatcherName.wrapOff($v{eventIndex});
+                                $lock;
+                                final res = this.$dispatcherName.wrapOff($v{eventIndex});
+                                $unlock;
+                                return res;
                             }
                         }),
 #if (haxe_server || telemetry)
@@ -851,7 +906,10 @@ class EventsMacro {
                             args: [],
                             ret: macro :Void->Bool,
                             expr: macro {
-                                return this.$dispatcherName.wrapListens($v{eventIndex});
+                                $lock;
+                                final res = this.$dispatcherName.wrapListens($v{eventIndex});
+                                $unlock;
+                                return res;
                             }
                         }),
 #if (haxe_server || telemetry)
@@ -893,15 +951,16 @@ class EventsMacro {
                                 ret: macro :Void,
 #if (!display && !completion)
                                 expr: macro {
+                                    $lock;
                                     $willEmit;
                                     var len = 0;
                                     if (this.$cbOnArray != null) len += this.$cbOnArray.length;
                                     if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
                                     if (len > 0) {
                                         #if tracker_ceramic
-                                        var pool = ceramic.ArrayPool.pool(len);
+                                        var pool = $lockable ? new ceramic.ArrayPool(len) : ceramic.ArrayPool.pool(len);
                                         #else
-                                        var pool = tracker.ArrayPool.pool(len);
+                                        var pool = $lockable ? new tracker.ArrayPool(len) : tracker.ArrayPool.pool(len);
                                         #end
                                         var callbacks = pool.get();
                                         #if tracker_debug_events
@@ -961,6 +1020,7 @@ class EventsMacro {
                                         callbacks = null;
                                     }
                                     $didEmit;
+                                    $unlock;
                                 }
 #else
                                 expr: macro {}
@@ -993,12 +1053,14 @@ class EventsMacro {
                                 }]),
                                 ret: macro :Void,
                                 expr: macro {
+                                    $lock;
                                     for (i in 0..._cbsLen) {
                                         var cb:Dynamic = _cbsArray.get(i);
                                         _cbsArray.set(i, null);
                                         cb($a{handlerCallArgs});
                                         cb = null;
                                     }
+                                    $unlock;
                                 }
                             }),
                             access: [APrivate],
@@ -1018,15 +1080,16 @@ class EventsMacro {
 #if (!display && !completion)
                                 expr: macro {
                                     @:nullSafety(Off) {
+                                        $lock;
                                         $willEmit;
                                         var len = 0;
                                         if (this.$cbOnArray != null) len += this.$cbOnArray.length;
                                         if (this.$cbOnceArray != null) len += this.$cbOnceArray.length;
                                         if (len > 0) {
                                             #if tracker_ceramic
-                                            var pool = ceramic.ArrayPool.pool(len);
+                                            var pool = $lockable ? new ceramic.ArrayPool(len) : ceramic.ArrayPool.pool(len);
                                             #else
-                                            var pool = tracker.ArrayPool.pool(len);
+                                            var pool = $lockable ? new tracker.ArrayPool(len) : tracker.ArrayPool.pool(len);
                                             #end
                                             var callbacks = pool.get();
                                             #if tracker_debug_events
@@ -1089,6 +1152,7 @@ class EventsMacro {
                                             callbacks = null;
                                         }
                                         $didEmit;
+                                        $unlock;
                                     }
                                 }
 #else
@@ -1139,10 +1203,12 @@ class EventsMacro {
 #if (!display && !completion)
                             expr: macro {
                                 @:nullSafety(Off) {
+                                    $lock;
                                     $willListen;
                                     // Map owner to handler
                                     if (owner != null) {
                                         if (owner.destroyed) {
+                                            $unlock;
                                             throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
                                         }
                                         var destroyCb;//:tracker.Entity->Void;
@@ -1176,6 +1242,7 @@ class EventsMacro {
                                     // Check handler
                                     #if tracker_check_handlers
                                     if ($i{handlerName} == null || !Reflect.isFunction($i{handlerName})) {
+                                        $unlock;
                                         throw $v{sanitizedName} + " is not a function!";
                                     }
                                     #end
@@ -1193,6 +1260,7 @@ class EventsMacro {
                                     this.$cbOnArray.push($i{handlerName});
 
                                     $trackOnOwner;
+                                    $unlock;
                                 }
                             }
 #else
@@ -1238,10 +1306,12 @@ class EventsMacro {
 #if (!display && !completion)
                             expr: macro {
                                 @:nullSafety(Off) {
+                                    $lock;
                                     $willListen;
                                     // Map owner to handler
                                     if (owner != null) {
                                         if (owner.destroyed) {
+                                            $unlock;
                                             throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
                                         }
                                         var destroyCb;//:tracker.Entity->Void;
@@ -1292,6 +1362,7 @@ class EventsMacro {
                                     this.$cbOnceArray.push($i{handlerName});
 
                                     $trackOnceOwner;
+                                    $unlock;
                                 }
                             }
 #else
@@ -1320,6 +1391,7 @@ class EventsMacro {
 #if (!display && !completion)
                             expr: macro {
                                 @:nullSafety(Off) {
+                                    $lock;
                                     if ($i{handlerName} != null) {
                                         var index:Int;
                                         var unbind:Void->Void;
@@ -1362,6 +1434,7 @@ class EventsMacro {
                                         this.$cbOnceArray = null;
                                         $untrackAllOnAndOnceOwners;
                                     }
+                                    $unlock;
                                 }
                             }
 #else
@@ -1383,8 +1456,11 @@ class EventsMacro {
                             ret: macro :Bool,
 #if (!display && !completion)
                             expr: macro {
-                                return @:nullSafety(Off) ((this.$cbOnArray != null && this.$cbOnArray.length > 0)
+                                $lock;
+                                final res = @:nullSafety(Off) ((this.$cbOnArray != null && this.$cbOnArray.length > 0)
                                     || (this.$cbOnceArray != null && this.$cbOnceArray.length > 0));
+                                $unlock;
+                                return res;
                             }
 #else
                             expr: macro {
@@ -1423,9 +1499,13 @@ class EventsMacro {
                                 ret: macro :Void,
                                 expr: isOverriding ? (macro {
                                     super.unbindEvents();
+                                    $lock;
                                     this.$offName();
+                                    $unlock;
                                 }) : (macro {
+                                    $lock;
                                     this.$offName();
+                                    $unlock;
                                 })
                             }),
                             access: isOverriding ? [APublic, AOverride] : [APublic],
@@ -1458,7 +1538,11 @@ class EventsMacro {
                                 switch (fn.expr.expr) {
                                     case EBlock(exprs):
 
-                                        exprs.push(macro this.$offName());
+                                        exprs.push(macro {
+                                            $lock;
+                                            this.$offName();
+                                            $unlock;
+                                        });
 
                                     default:
                                         throw new Error("Invalid unbindEvents body", unbindEventsField.pos);
@@ -1495,6 +1579,20 @@ class EventsMacro {
 
         for (meta in field.meta) {
             if (meta.name == 'event') {
+                return true;
+            }
+        }
+
+        return false;
+
+    }
+
+    static function hasSynchronizedMeta(field:Field):Bool {
+
+        if (field.meta == null || field.meta.length == 0) return false;
+
+        for (meta in field.meta) {
+            if (meta.name == 'synchronized') {
                 return true;
             }
         }

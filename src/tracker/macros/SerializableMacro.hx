@@ -295,7 +295,7 @@ class SerializableMacro {
                 doc: 'Event when this object gets serialized.',
                 meta: []
             };
-            nextEventIndex = EventsMacro.createEventFields(eventField, fields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity);
+            nextEventIndex = EventsMacro.createEventFields(eventField, fields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity, false);
 
             eventField = {
                 pos: pos,
@@ -309,7 +309,7 @@ class SerializableMacro {
                 doc: 'Event when this object gets deserialized.',
                 meta: []
             };
-            nextEventIndex = EventsMacro.createEventFields(eventField, fields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity);
+            nextEventIndex = EventsMacro.createEventFields(eventField, fields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity, false);
         }
 
         // Store next event index for this class path

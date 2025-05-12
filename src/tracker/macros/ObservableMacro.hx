@@ -133,7 +133,9 @@ class ObservableMacro {
             };
 
             // Add event
-            nextEventIndex = EventsMacro.createEventFields(eventField, newFields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity);
+            nextEventIndex = EventsMacro.createEventFields(
+                eventField, newFields, fields, fieldsByName, dynamicDispatch, nextEventIndex, dispatcherName, inheritsFromEntity, false
+            );
 
             // Create observedDirty var
             newFields.push({
@@ -797,7 +799,7 @@ class ObservableMacro {
         };
 
         // Add related events
-        eventIndex = EventsMacro.createEventFields(eventField, newFields, existingFields, fieldsByName, dynamicDispatch, eventIndex, dispatcherName, inheritsFromEntity);
+        eventIndex = EventsMacro.createEventFields(eventField, newFields, existingFields, fieldsByName, dynamicDispatch, eventIndex, dispatcherName, inheritsFromEntity, false);
 
         // In case it was initialized on this iteration
         _toRename = toRename;
