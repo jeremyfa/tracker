@@ -4,8 +4,8 @@
     "license": "MIT",
     "tags": ["tracker", "reactive", "observable", "state", "model", "serialization", "events"],
     "description": "A set of tools to manage events, observable and serializable properties, autorunable functions and data models in general.",
-    "version": "1.0.0",
-    "releasenote": "Fully working version, tested in production",
+    "version": "1.1.0",
+    "releasenote": "Add Immediate utility (specifically: oncePostFlushImmediate())",
     "contributors": ["jeremyfa"],
     "classPath": "src/",
     "dependencies": {}
