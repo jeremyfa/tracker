@@ -61,7 +61,7 @@ class SaveModel {
             }
         }
 
-        #if sys
+        #if (sys && !no_filesystem)
         // On sys targets, try to load from backup if nothing else worked
         if (data == null) {
             var storageDir = backend.storageDirectory();
@@ -302,7 +302,7 @@ class SaveModel {
         // Mark this second file as the valid one on second id key
         backend.saveString(saveIdKey2, '2');
 
-        #if sys
+        #if (sys && !no_filesystem)
         // On sys targets, make an additional backup on a plain text file
         var storageDir = backend.storageDirectory();
         if (storageDir != null) {
