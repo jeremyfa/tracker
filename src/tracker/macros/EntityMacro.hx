@@ -36,6 +36,10 @@ class EntityMacro {
         var localClass = Context.getLocalClass().get();
         var fields = Context.getBuildFields();
         var classPath = Context.getLocalClass().toString();
+
+        // Transform @inout @compute fields if applicable. Idempotent: also called from
+        // ObservableMacro and SerializableMacro so the order of macro execution doesn't matter.
+        InoutComputeMacro.processFields(fields, localClass.meta.get(), Context.currentPos());
         var parentHold = localClass.superClass;
         var parent = parentHold != null ? parentHold.t : null;
         var parentConstructor = null;

@@ -17,6 +17,10 @@ class SerializableMacro {
         var pos = Context.currentPos();
         var localClass = Context.getLocalClass().get();
 
+        // Transform @inout @compute fields if applicable. Idempotent: also called from
+        // ObservableMacro and EntityMacro so the order of macro execution doesn't matter.
+        InoutComputeMacro.processFields(fields, localClass.meta.get(), pos);
+
         // Get next event index for this class path
         var classPath = localClass.pack != null && localClass.pack.length > 0 ? localClass.pack.join('.') + '.' + localClass.name : localClass.name;
         var nextEventIndex = EventsMacro._nextEventIndexes.exists(classPath) ? EventsMacro._nextEventIndexes.get(classPath) : 1;

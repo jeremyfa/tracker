@@ -1,0 +1,4 @@
+-cp src
+-main tracker.test.InoutOutMain
+-D tracker_compute_out
+--interp
