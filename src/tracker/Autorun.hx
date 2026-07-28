@@ -60,6 +60,10 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         onRun = null;
         afterRun = null;
 
+        // Drop the owner reference so a destroyed autorun kept around by user
+        // code (e.g. in an array awaiting cleanup) never retains its entity.
+        owner = null;
+
         // Destroy
         super.destroy();
 
