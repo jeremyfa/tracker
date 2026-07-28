@@ -48,116 +48,9 @@ class Entity implements Events {
 
         #if tracker_debug_entity_allocs
         this.posInfos = pos;
+        #end
 
-        if (!debugEntityAllocsInitialized) {
-            debugEntityAllocsInitialized = true;
-            Timer.interval(null, 5.0, function() {
-                #if cpp
-                cpp.vm.Gc.run(true);
-                #end
-
-                var allClasses:Array<String> = [];
-                var usedKeys = new Map<String, Int>();
-                if (numEntityAliveInMemoryByClass != null) {
-                    for (key in numEntityAliveInMemoryByClass.keys()) {
-                        if (!usedKeys.exists(key)) {
-                            allClasses.push(key);
-                            usedKeys.set(key, numEntityAliveInMemoryByClass.get(key));
-                        }
-                        else {
-                            usedKeys.set(key, usedKeys.get(key) + numEntityAliveInMemoryByClass.get(key));
-                        }
-                    }
-                }
-                if (numEntityDestroyedButInMemoryByClass != null) {
-                    for (key in numEntityDestroyedButInMemoryByClass.keys()) {
-                        if (!usedKeys.exists(key)) {
-                            allClasses.push(key);
-                            usedKeys.set(key, numEntityDestroyedButInMemoryByClass.get(key));
-                        }
-                        else {
-                            usedKeys.set(key, usedKeys.get(key) + numEntityDestroyedButInMemoryByClass.get(key));
-                        }
-                    }
-                }
-                allClasses.sort(function(a:String, b:String) {
-                    var numA = 0;
-                    if (numEntityDestroyedButInMemoryByClass.exists(a)) {
-                        numA = numEntityDestroyedButInMemoryByClass.get(a);
-                    }
-                    var numB = 0;
-                    if (numEntityDestroyedButInMemoryByClass.exists(b)) {
-                        numB = numEntityDestroyedButInMemoryByClass.get(b);
-                    }
-                    return numA - numB;
-                });
-                tracker.Shortcuts.log(' - entities in memory -');
-                for (clazz in allClasses) {
-                    tracker.Shortcuts.log('    $clazz / ${usedKeys.get(clazz)} / alive=${numEntityAliveInMemoryByClass.get(clazz)} destroyed=${numEntityDestroyedButInMemoryByClass.get(clazz)}');
-
-                    var weakRefs = destroyedWeakRefs.get(clazz);
-                    if (weakRefs != null) {
-                        var hasRefs = false;
-                        var pathStats = new Map<String,Int>();
-                        var newRefs = [];
-                        var allPaths:Array<String> = [];
-                        for (weakRef in weakRefs) {
-                            var entity:Entity = weakRef.get();
-                            if (entity != null) {
-                                if (Std.isOfType(entity, tracker.Autorun)) {
-                                    var autor:tracker.Autorun = cast entity;
-                                    if (@:privateAccess autor.onRun != null) {
-                                        throw "Autorun onRun is not null!";
-                                    }
-                                }
-                                newRefs.push(weakRef);
-                                var posInfos = entity.posInfos;
-                                if (posInfos != null) {
-                                    var path = posInfos.fileName + ':' + posInfos.lineNumber;
-                                    if (pathStats.exists(path)) {
-                                        pathStats.set(path, pathStats.get(path) + 1);
-                                    }
-                                    else {
-                                        pathStats.set(path, 1);
-                                        allPaths.push(path);
-                                    }
-                                }
-                            }
-                            else {
-                                numEntityDestroyedButInMemoryByClass.set(clazz, numEntityDestroyedButInMemoryByClass.get(clazz) - 1);
-                            }
-                        }
-                        weakRefs.splice(0, weakRefs.length);
-                        for (weakRef in newRefs) {
-                            weakRefs.push(weakRef);
-                        }
-                        allPaths.sort(function(a, b) {
-                            return pathStats.get(a) - pathStats.get(b);
-                        });
-                        if (allPaths.length > 0) {
-                            var limit = 8;
-                            var i = allPaths.length - 1;
-                            var numLogged = 0;
-                            while (limit > 0 && i >= 0) {
-                                var path = allPaths[i];
-                                var num = pathStats.get(path);
-                                numLogged += num;
-                                tracker.Shortcuts.log('        leak ${num} x $path');
-                                i--;
-                                limit--;
-                            }
-                            if (i > 0) {
-                                var total = 0;
-                                for (path in allPaths) {
-                                    total += pathStats.get(path);
-                                }
-                                tracker.Shortcuts.log('        leak ${total - numLogged} x ...');
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        #if tracker_debug_entity_allocs
 
         var clazz = '' + Type.getClass(this);
 
@@ -175,6 +68,121 @@ class Entity implements Events {
         #end
 
     }
+
+    #if tracker_debug_entity_allocs
+    /**
+     * Dump per-class alive/destroyed-but-retained entity counts, with a
+     * creation-site histogram for retained (destroyed) instances. Call this
+     * periodically from the host (there is no built-in timer in tracker).
+     */
+    public static function dumpEntityAllocs():Void {
+        #if cpp
+        cpp.vm.Gc.run(true);
+        #end
+
+        var allClasses:Array<String> = [];
+        var usedKeys = new Map<String, Int>();
+        if (numEntityAliveInMemoryByClass != null) {
+            for (key in numEntityAliveInMemoryByClass.keys()) {
+                if (!usedKeys.exists(key)) {
+                    allClasses.push(key);
+                    usedKeys.set(key, numEntityAliveInMemoryByClass.get(key));
+                }
+                else {
+                    usedKeys.set(key, usedKeys.get(key) + numEntityAliveInMemoryByClass.get(key));
+                }
+            }
+        }
+        if (numEntityDestroyedButInMemoryByClass != null) {
+            for (key in numEntityDestroyedButInMemoryByClass.keys()) {
+                if (!usedKeys.exists(key)) {
+                    allClasses.push(key);
+                    usedKeys.set(key, numEntityDestroyedButInMemoryByClass.get(key));
+                }
+                else {
+                    usedKeys.set(key, usedKeys.get(key) + numEntityDestroyedButInMemoryByClass.get(key));
+                }
+            }
+        }
+        allClasses.sort(function(a:String, b:String) {
+            var numA = 0;
+            if (numEntityDestroyedButInMemoryByClass.exists(a)) {
+                numA = numEntityDestroyedButInMemoryByClass.get(a);
+            }
+            var numB = 0;
+            if (numEntityDestroyedButInMemoryByClass.exists(b)) {
+                numB = numEntityDestroyedButInMemoryByClass.get(b);
+            }
+            return numA - numB;
+        });
+        haxe.Log.trace(' - entities in memory -');
+        for (clazz in allClasses) {
+            haxe.Log.trace('    $clazz / ${usedKeys.get(clazz)} / alive=${numEntityAliveInMemoryByClass.get(clazz)} destroyed=${numEntityDestroyedButInMemoryByClass.get(clazz)}');
+
+            var weakRefs = destroyedWeakRefs.get(clazz);
+            if (weakRefs != null) {
+                var hasRefs = false;
+                var pathStats = new Map<String,Int>();
+                var newRefs = [];
+                var allPaths:Array<String> = [];
+                for (weakRef in weakRefs) {
+                    var entity:Entity = weakRef.get();
+                    if (entity != null) {
+                        if (Std.isOfType(entity, tracker.Autorun)) {
+                            var autor:tracker.Autorun = cast entity;
+                            if (@:privateAccess autor.onRun != null) {
+                                throw "Autorun onRun is not null!";
+                            }
+                        }
+                        newRefs.push(weakRef);
+                        var posInfos = entity.posInfos;
+                        if (posInfos != null) {
+                            var path = posInfos.fileName + ':' + posInfos.lineNumber;
+                            if (pathStats.exists(path)) {
+                                pathStats.set(path, pathStats.get(path) + 1);
+                            }
+                            else {
+                                pathStats.set(path, 1);
+                                allPaths.push(path);
+                            }
+                        }
+                    }
+                    else {
+                        numEntityDestroyedButInMemoryByClass.set(clazz, numEntityDestroyedButInMemoryByClass.get(clazz) - 1);
+                    }
+                }
+                weakRefs.splice(0, weakRefs.length);
+                for (weakRef in newRefs) {
+                    weakRefs.push(weakRef);
+                }
+                allPaths.sort(function(a, b) {
+                    return pathStats.get(a) - pathStats.get(b);
+                });
+                if (allPaths.length > 0) {
+                    var limit = 8;
+                    var i = allPaths.length - 1;
+                    var numLogged = 0;
+                    while (limit > 0 && i >= 0) {
+                        var path = allPaths[i];
+                        var num = pathStats.get(path);
+                        numLogged += num;
+                        haxe.Log.trace('        leak ${num} x $path');
+                        i--;
+                        limit--;
+                    }
+                    if (i > 0) {
+                        var total = 0;
+                        for (path in allPaths) {
+                            total += pathStats.get(path);
+                        }
+                        haxe.Log.trace('        leak ${total - numLogged} x ...');
+                    }
+                }
+            }
+        }
+
+    }
+    #end
 
     #if (cpp && tracker_debug_entity_allocs)
     @:void public static function __finalizeEntity(o:Entity):Void {
