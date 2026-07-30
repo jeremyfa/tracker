@@ -26,6 +26,27 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     var boundAutorunArrays:Array<Array<Autorun>> = null;
 
+    /**
+     * Number of autorun arrays this autorun was bound to when it last
+     * unbound. Used as a size hint when requesting a recycled array from the
+     * pool: an autorun tends to bind a similar number of observables on every
+     * run, so the pool can hand back an array that already has the right
+     * capacity instead of an arbitrary one.
+     */
+    var lastBoundArraysCount:Int = 0;
+
+    /**
+     * Rolling lower bound of this autorun's array capacity bucket, used on
+     * BOTH sides of the pool round-trip. On get, it makes the autorun request
+     * at least the bucket it historically needed (a binder whose binding count
+     * oscillates between scenes would otherwise request a small array on its
+     * big phase - the size hint lags one run behind - and grow a brand new
+     * large buffer every cycle). On recycle, it makes the array go back to
+     * the bucket of its actual capacity (which never shrinks), not the bucket
+     * of the last run's usage.
+     */
+    var boundArraysCapacityBucket:Int = 0;
+
     public var invalidated(default,null):Bool = false;
 
 /// Lifecycle
@@ -179,7 +200,8 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         // Check if this autorun array is already bound
         var alreadyBound = false;
         if (boundAutorunArrays == null) {
-            boundAutorunArrays = getArrayOfAutorunArrays();
+            boundAutorunArrays = getArrayOfAutorunArrays(lastBoundArraysCount, boundArraysCapacityBucket);
+            boundArraysCapacityBucket = _lastServedSizeBucket;
         }
         else {
             for (i in 0...boundAutorunArrays.length) {
@@ -247,7 +269,10 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
                 }
             }
 
-            recycleArrayOfAutorunArrays(boundAutorunArrays);
+            lastBoundArraysCount = boundAutorunArrays.length;
+            var lengthBucket = poolSizeBucket(lastBoundArraysCount);
+            if (lengthBucket > boundArraysCapacityBucket) boundArraysCapacityBucket = lengthBucket;
+            recycleArrayOfAutorunArrays(boundAutorunArrays, boundArraysCapacityBucket);
             boundAutorunArrays = null;
         }
 
@@ -270,6 +295,26 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Recycling autorun arrays
 
+    // Recycled arrays are grouped in size buckets, based on their length at
+    // recycle time (a lower bound of their actual capacity, since an array's
+    // capacity never shrinks). Requests provide a size hint so the pool can
+    // return an array whose capacity already matches the expected usage: a
+    // large binder gets back a large array (no repeated regrowth), and small
+    // users never end up holding large-capacity buffers - without this,
+    // recycled arrays get shuffled arbitrarily between users and more and
+    // more of them ratchet up to large capacities over time.
+    static inline final POOL_SIZE_BUCKETS:Int = 5;
+
+    inline static function poolSizeBucket(size:Int):Int {
+        return size <= 8 ? 0 : size <= 32 ? 1 : size <= 128 ? 2 : size <= 512 ? 3 : 4;
+    }
+
+    // Single-stack pool: unlike the per-autorun binding arrays below, the
+    // observable-side AutorunArrays are homogeneous (an observable's watcher
+    // count is small and similar across observables) and their callers have
+    // no size hint to provide, so size buckets would starve the pool (every
+    // recycled array would land in a bucket that hintless get() calls never
+    // look into). The original single stack recirculates everything.
     static var _autorunArrays:Array<Array<Autorun>> = [];
     static var _autorunArraysLen:Int = 0;
 
@@ -302,24 +347,44 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Recycling array of autorun arrays
 
-    static var _arrayOfAutorunArrays:Array<Array<Array<Autorun>>> = [];
-    static var _arrayOfAutorunArraysLen:Int = 0;
+    static var _arrayOfAutorunArrays:Array<Array<Array<Array<Autorun>>>> = [[], [], [], [], []];
+    static var _arrayOfAutorunArraysLen:Array<Int> = [0, 0, 0, 0, 0];
 
-    inline public static function getArrayOfAutorunArrays():Array<Array<Autorun>> {
+    /**
+     * Size bucket the last `getArrayOfAutorunArrays()` call actually served
+     * from (it can be lower than the requested hint, or 0 for a fresh array).
+     * Read it right after the call: callers keep it and hand it back on
+     * recycle as a permanent lower bound of the array's capacity bucket.
+     */
+    public static var _lastServedSizeBucket(default, null):Int = 0;
 
-        if (_arrayOfAutorunArraysLen > 0) {
-            _arrayOfAutorunArraysLen--;
-            var array = _arrayOfAutorunArrays[_arrayOfAutorunArraysLen];
-            _arrayOfAutorunArrays[_arrayOfAutorunArraysLen] = null;
-            return array;
+    public static function getArrayOfAutorunArrays(sizeHint:Int = 0, capacityBucketHint:Int = 0):Array<Array<Autorun>> {
+
+        var sizeBucket = poolSizeBucket(sizeHint);
+        if (capacityBucketHint > sizeBucket) sizeBucket = capacityBucketHint;
+        while (sizeBucket >= 0) {
+            var len = _arrayOfAutorunArraysLen.unsafeGet(sizeBucket);
+            if (len > 0) {
+                len--;
+                _arrayOfAutorunArraysLen.unsafeSet(sizeBucket, len);
+                var stack = _arrayOfAutorunArrays.unsafeGet(sizeBucket);
+                var array = stack.unsafeGet(len);
+                stack.unsafeSet(len, null);
+                _lastServedSizeBucket = sizeBucket;
+                return array;
+            }
+            sizeBucket--;
         }
-        else {
-            return [];
-        }
+
+        _lastServedSizeBucket = 0;
+        return [];
 
     }
 
-    inline public static function recycleArrayOfAutorunArrays(array:Array<Array<Autorun>>):Void {
+    public static function recycleArrayOfAutorunArrays(array:Array<Array<Autorun>>, capacityBucketHint:Int = 0):Void {
+
+        var sizeBucket = poolSizeBucket(array.length);
+        if (capacityBucketHint > sizeBucket) sizeBucket = capacityBucketHint;
 
         #if cpp
         untyped array.__SetSize(0);
@@ -327,8 +392,9 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         array.splice(0, array.length);
         #end
 
-        _arrayOfAutorunArrays[_arrayOfAutorunArraysLen] = array;
-        _arrayOfAutorunArraysLen++;
+        var len = _arrayOfAutorunArraysLen.unsafeGet(sizeBucket);
+        _arrayOfAutorunArrays.unsafeGet(sizeBucket)[len] = array;
+        _arrayOfAutorunArraysLen.unsafeSet(sizeBucket, len + 1);
 
     }
 
