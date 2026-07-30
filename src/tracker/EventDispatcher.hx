@@ -149,6 +149,20 @@ class EventDispatcher {
                     i++;
                 }
                 item.cbOnceArray = null;
+                // Consume the paired owner-unbind entries as well (mirrors the
+                // macro-generated emit). They used to be left in place forever:
+                // every once() registration leaked its unbind closure into this
+                // array (unbounded growth on frequently re-registered events),
+                // and the leftover entries drifted out of sync with future
+                // once() registrations, making later off() calls unbind the
+                // wrong owner handler.
+                if (item.cbOnceOwnerUnbindArray != null) {
+                    for (ii in 0...item.cbOnceOwnerUnbindArray.length) {
+                        var onceUnbind = item.cbOnceOwnerUnbindArray[ii];
+                        if (onceUnbind != null) onceUnbind();
+                    }
+                    item.cbOnceOwnerUnbindArray = null;
+                }
             }
             if (numArgs == 0) {
                 for (i in 0...len) {
