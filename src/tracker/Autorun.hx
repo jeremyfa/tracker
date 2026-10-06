@@ -8,7 +8,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Current autorun
 
-    static var prevCurrent:Array<Autorun> = [];
+    static final prevCurrent:Array<Autorun> = [];
 
     public static var current:Autorun = null;
 
