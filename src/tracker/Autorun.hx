@@ -197,17 +197,38 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         // (this should not happen when correctly used by the way)
         if (invalidated || destroyed) return;
 
-        // Check if this autorun array is already bound
+        // Check if this autorun array is already bound. This autorun is in
+        // `autorunArray` exactly when `autorunArray` is in `boundAutorunArrays`
+        // (both are updated together, and unbinding clears this autorun's
+        // entry), so the shorter of the two lists is searched. A bound
+        // autorun is put last in the array: reading the same field again is
+        // found at once.
         var alreadyBound = false;
         if (boundAutorunArrays == null) {
             boundAutorunArrays = getArrayOfAutorunArrays(lastBoundArraysCount, boundArraysCapacityBucket);
             boundArraysCapacityBucket = _lastServedSizeBucket;
         }
         else {
-            for (i in 0...boundAutorunArrays.length) {
-                if (boundAutorunArrays.unsafeGet(i) == autorunArray) {
-                    alreadyBound = true;
-                    break;
+            var len = autorunArray.length;
+            if (len > 0 && autorunArray.unsafeGet(len - 1) == this) {
+                alreadyBound = true;
+            }
+            else if (len <= boundAutorunArrays.length) {
+                var i = len - 2;
+                while (i >= 0) {
+                    if (autorunArray.unsafeGet(i) == this) {
+                        alreadyBound = true;
+                        break;
+                    }
+                    i--;
+                }
+            }
+            else {
+                for (i in 0...boundAutorunArrays.length) {
+                    if (boundAutorunArrays.unsafeGet(i) == autorunArray) {
+                        alreadyBound = true;
+                        break;
+                    }
                 }
             }
         }
