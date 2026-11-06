@@ -49,6 +49,9 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     public var invalidated(default,null):Bool = false;
 
+    /** `run` as a function value, made on the first invalidation */
+    var runCallback:() -> Void = null;
+
 /// Lifecycle
 
     /**
@@ -133,7 +136,13 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
         unbindFromAllAutorunArrays();
 
-        backend.onceImmediate(run);
+        // `run` as a function value, made once (a bound method allocates each time it is taken)
+        var runCallback = this.runCallback;
+        if (runCallback == null) {
+            runCallback = run;
+            this.runCallback = runCallback;
+        }
+        backend.onceImmediate(runCallback);
 
     }
 
