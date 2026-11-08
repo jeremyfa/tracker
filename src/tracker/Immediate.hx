@@ -50,7 +50,7 @@ class Immediate {
      * @param owner Owner of this callback, allowing to cancel callback if owner is destroyed
      * @param handleImmediate The callback to execute
      */
-    extern inline overload public function onceImmediate(#if tracker_ceramic owner:ceramic.Entity #else owner:tracker.Entity #end , handleImmediate:Void->Void #if tracker_debug_immediate , ?pos:haxe.PosInfos #end):Void {
+    extern inline overload public function onceImmediate(owner:tracker.Owner , handleImmediate:Void->Void #if tracker_debug_immediate , ?pos:haxe.PosInfos #end):Void {
 
         _onceImmediateWithOwner(owner, handleImmediate #if tracker_debug_immediate , pos #end);
 
@@ -67,7 +67,7 @@ class Immediate {
 
     }
 
-    function _onceImmediateWithOwner(#if tracker_ceramic owner:ceramic.Entity #else owner:tracker.Entity #end , handleImmediate:Void->Void #if tracker_debug_immediate , ?pos:haxe.PosInfos #end):Void {
+    function _onceImmediateWithOwner(owner:tracker.Owner , handleImmediate:Void->Void #if tracker_debug_immediate , ?pos:haxe.PosInfos #end):Void {
 
         _onceImmediate(function() {
             if (owner == null || !owner.destroyed) {
@@ -107,7 +107,7 @@ class Immediate {
      * @param handlePostFlushImmediate The callback to execute
      * @param defer if `true` (default), will box this call into an immediate callback
      */
-    extern inline overload public function oncePostFlushImmediate(#if tracker_ceramic owner:ceramic.Entity #else owner:tracker.Entity #end , handlePostFlushImmediate:Void->Void, defer:Bool = true):Void {
+    extern inline overload public function oncePostFlushImmediate(owner:tracker.Owner , handlePostFlushImmediate:Void->Void, defer:Bool = true):Void {
 
         _oncePostFlushImmediateWithOwner(owner, handlePostFlushImmediate, defer);
 
@@ -124,7 +124,7 @@ class Immediate {
 
     }
 
-    function _oncePostFlushImmediateWithOwner(#if tracker_ceramic owner:ceramic.Entity #else owner:tracker.Entity #end , handlePostFlushImmediate:Void->Void, defer:Bool):Void {
+    function _oncePostFlushImmediateWithOwner(owner:tracker.Owner , handlePostFlushImmediate:Void->Void, defer:Bool):Void {
 
         _oncePostFlushImmediate(function() {
             if (owner == null || !owner.destroyed) {

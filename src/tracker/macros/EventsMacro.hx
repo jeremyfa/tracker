@@ -207,13 +207,9 @@ class EventsMacro {
             dynamicDispatch = false;
         }
 
-        #if tracker_ceramic
-        var entityType = macro :ceramic.Entity;
-        #else
-        var entityType = TrackerMacro.entityType;
-        if (entityType == null)
-            entityType = macro :tracker.Entity;
-        #end
+        // Owners are typed with the `tracker.Owner` interface, not the entity class,
+        // so that lighter objects implementing it can own handlers too
+        var ownerType = TrackerMacro.ownerType();
 
         #if (!tracker_synchronized || completion || display)
         threadSafe = false;
@@ -574,13 +570,7 @@ class EventsMacro {
                                         name: 'Array',
                                         pack: [],
                                         params: [
-                                            TPType(
-                                                #if tracker_ceramic
-                                                macro :ceramic.Entity
-                                                #else
-                                                macro :tracker.Entity
-                                                #end
-                                            )
+                                            TPType(ownerType)
                                         ]
                                     })
                                 )
@@ -608,13 +598,7 @@ class EventsMacro {
                                         name: 'Array',
                                         pack: [],
                                         params: [
-                                            TPType(
-                                                #if tracker_ceramic
-                                                macro :ceramic.Entity
-                                                #else
-                                                macro :tracker.Entity
-                                                #end
-                                            )
+                                            TPType(ownerType)
                                         ]
                                     })
                                 )
@@ -744,7 +728,7 @@ class EventsMacro {
                         pos: field.pos,
                         name: onName,
                         kind: FProp('get', 'never', TFunction([
-                            TOptional(entityType),
+                            TOptional(ownerType),
                             handlerType
                         ], macro :Void)),
                         access: [hasPrivateModifier ? APrivate : APublic],
@@ -762,7 +746,7 @@ class EventsMacro {
                         kind: FFun({
                             args: [],
                             ret: TFunction([
-                                TOptional(entityType),
+                                TOptional(ownerType),
                                 handlerType
                             ], macro :Void),
                             expr: macro {
@@ -795,7 +779,7 @@ class EventsMacro {
                         pos: field.pos,
                         name: onceName,
                         kind: FProp('get', 'never', TFunction([
-                            TOptional(entityType),
+                            TOptional(ownerType),
                             handlerType
                         ], macro :Void)),
                         access: [hasPrivateModifier ? APrivate : APublic],
@@ -813,7 +797,7 @@ class EventsMacro {
                         kind: FFun({
                             args: [],
                             ret: TFunction([
-                                TOptional(entityType),
+                                TOptional(ownerType),
                                 handlerType
                             ], macro :Void),
                             expr: macro {
@@ -1182,7 +1166,7 @@ class EventsMacro {
                                         name: 'Null',
                                         pack: [],
                                         params: [
-                                            TPType(entityType)
+                                            TPType(ownerType)
                                         ]
                                     }),
                                     opt: #if tracker_optional_owner true #else false #end
@@ -1211,7 +1195,7 @@ class EventsMacro {
                                             $unlock;
                                             throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
                                         }
-                                        var destroyCb;//:tracker.Entity->Void;
+                                        var destroyCb:(tracker.Owner) -> Void;
                                         destroyCb = function(_) {
                                             if ($i{handlerName} != null) {
                                                 this.$offName($i{handlerName});
@@ -1285,7 +1269,7 @@ class EventsMacro {
                                         name: 'Null',
                                         pack: [],
                                         params: [
-                                            TPType(entityType)
+                                            TPType(ownerType)
                                         ]
                                     }),
                                     opt: #if tracker_optional_owner true #else false #end
@@ -1314,7 +1298,7 @@ class EventsMacro {
                                             $unlock;
                                             throw 'Failed to bind event ' + $v{sanitizedName} + ' because owner is destroyed!';
                                         }
-                                        var destroyCb;//:tracker.Entity->Void;
+                                        var destroyCb:(tracker.Owner) -> Void;
                                         destroyCb = function(_) {
                                             if ($i{handlerName} != null) {
                                                 this.$offName($i{handlerName});

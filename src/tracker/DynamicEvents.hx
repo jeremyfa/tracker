@@ -74,14 +74,14 @@ class DynamicEvents<T> extends Entity #if tracker_ceramic implements ceramic.Com
 
     }
 
-    public function on(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
+    public function on(event:T, #if tracker_optional_owner ?owner:Owner #else owner:Null<Owner> #end, cb:Dynamic):Void {
 
         var index = indexForEvent(event);
         dispatcher.on(index, owner, cb);
 
     }
 
-    public function once(event:T, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
+    public function once(event:T, #if tracker_optional_owner ?owner:Owner #else owner:Null<Owner> #end, cb:Dynamic):Void {
 
         var index = indexForEvent(event);
         dispatcher.once(index, owner, cb);

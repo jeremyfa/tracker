@@ -13,6 +13,11 @@ class TrackerMacro {
 
     static var entityTypeStr:String = null;
 
+    /** Type of the `owner` argument of event handlers, autoruns, timers... Always `tracker.Owner`. */
+    static function ownerType():ComplexType {
+        return macro :tracker.Owner;
+    }
+
     static var definedTypes:Map<String,Bool> = new Map();
 
     macro public function setEntity(type:String) {

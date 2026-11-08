@@ -5,7 +5,7 @@ package tracker;
 #if (!macro && !display && !completion)
 @:autoBuild(tracker.macros.EntityMacro.build())
 #end
-class Entity implements Events {
+class Entity implements Events implements Owner {
 
 /// Properties
 
@@ -37,7 +37,7 @@ class Entity implements Events {
 
 /// Events
 
-    @event function destroy(entity:tracker.Entity);
+    @staticEvent @event function destroy(entity:tracker.Owner);
 
 /// Lifecycle
 

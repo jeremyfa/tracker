@@ -266,12 +266,12 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     /**
      * Execute a callback periodically at the given interval in seconds.
-     * @param owner The entity that owns this interval
+     * @param owner The owner of this interval (the interval stops once it is destroyed)
      * @param seconds The time in seconds between each call
      * @param callback The callback to call
      * @return ()->Void A callback to cancel the interval
      */
-    public function interval(owner:Entity, seconds:Float, callback:Void->Void):Void->Void {
+    public function interval(owner:Owner, seconds:Float, callback:Void->Void):Void->Void {
 
         var timer = new haxe.Timer(Math.round(seconds * 1000));
         timer.run = function() {
@@ -288,12 +288,12 @@ class DefaultBackend #if !tracker_custom_backend implements Backend #end {
 
     /**
      * Execute a callback after the given delay in seconds.
-     * @param owner The entity that owns this delayed call
+     * @param owner The owner of this delayed call (the call is skipped once it is destroyed)
      * @param seconds The time in seconds of delay before the call
      * @param callback The callback to call
      * @return ()->Void A callback to cancel the delayed call
      */
-    public function delay(owner:Entity, seconds:Float, callback:Void->Void):Void->Void {
+    public function delay(owner:Owner, seconds:Float, callback:Void->Void):Void->Void {
 
         var timer = new haxe.Timer(Math.round(seconds * 1000));
         timer.run = function() {

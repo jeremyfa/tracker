@@ -22,7 +22,7 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     @:noCompletion public var afterRun:Void->Void = null;
 
-    @:noCompletion public var owner:#if tracker_ceramic ceramic.Entity #else Entity #end = null;
+    @:noCompletion public var owner:Owner = null;
 
     var boundAutorunArrays:Array<Array<Autorun>> = null;
 

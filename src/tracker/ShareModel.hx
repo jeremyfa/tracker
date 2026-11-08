@@ -552,7 +552,7 @@ class ShareModel extends #if tracker_ceramic ceramic.Entity #else Entity #end im
 
 /// Public (extension) API
 
-    public static function autoShare(model:Model, checkInterval:Float = 0.032, #if tracker_ceramic ?owner:ceramic.Entity #else ?owner:Entity #end , onChangeset:(changeset:ShareChangeset)->Void):ShareModel {
+    public static function autoShare(model:Model, checkInterval:Float = 0.032, ?owner:Owner , onChangeset:(changeset:ShareChangeset)->Void):ShareModel {
 
         // If there is already a sharer, just use that
         var sharer = model.sharer;

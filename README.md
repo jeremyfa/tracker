@@ -276,6 +276,8 @@ example.emitUpdate(data, timestamp);
 example.listensUpdate(); // Returns true if has listeners
 ```
 
+The `owner` argument is typed `tracker.Owner`, an interface that every entity implements: a handler bound with an owner is removed when the owner is destroyed. An object that is not an entity can own handlers too, by implementing `tracker.Owner` (`destroyed`, `onceDestroy()`, `offDestroy()`), usually by delegating to the entity carrying its lifecycle. The same owner type is accepted by `Autorun.owner`, by the backend's `interval()` and `delay()`, and by `onceImmediate()`.
+
 ### Autorun Control
 
 ```haxe

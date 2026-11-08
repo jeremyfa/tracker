@@ -250,7 +250,7 @@ class EventDispatcher {
 
     }
 
-    public function on(index:Int, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
+    public function on(index:Int, #if tracker_optional_owner ?owner:Owner #else owner:Null<Owner> #end, cb:Dynamic):Void {
 
         var item = items[index];
         if (item == null) {
@@ -269,7 +269,7 @@ class EventDispatcher {
             if (owner.destroyed) {
                 throw 'Failed to bind dynamic event because owner is destroyed!';
             }
-            var destroyCb:Entity->Void;
+            var destroyCb:(Owner) -> Void;
             destroyCb = function(_) {
                 if (cb != null) {
                     off(index, cb);
@@ -335,7 +335,7 @@ class EventDispatcher {
 
     }
 
-    public function once(index:Int, #if tracker_optional_owner ?owner:Entity #else owner:Null<Entity> #end, cb:Dynamic):Void {
+    public function once(index:Int, #if tracker_optional_owner ?owner:Owner #else owner:Null<Owner> #end, cb:Dynamic):Void {
 
         var item = items[index];
         if (item == null) {
@@ -354,7 +354,7 @@ class EventDispatcher {
             if (owner.destroyed) {
                 throw 'Failed to bind dynamic event because owner is destroyed!';
             }
-            var destroyCb:Entity->Void;
+            var destroyCb:(Owner) -> Void;
             destroyCb = function(_) {
                 if (cb != null) {
                     off(index, cb);
