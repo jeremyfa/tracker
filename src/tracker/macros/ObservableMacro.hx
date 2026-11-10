@@ -621,23 +621,7 @@ class ObservableMacro {
         var fieldAutoruns = {
             pos: field.pos,
             name: fieldNameAutoruns,
-            kind: FVar(TPath({
-                name: 'Null',
-                pack: [],
-                params: [
-                    TPType(
-                        TPath({
-                            name: 'Array',
-                            pack: [],
-                            params: [
-                                TPType(
-                                    macro :tracker.Autorun
-                                )
-                            ]
-                        })
-                    )
-                ]
-            }), macro null),
+            kind: FVar(macro :Null<tracker.AutorunArray>, macro null),
             access: [APrivate],
         };
         newFields.push(fieldAutoruns);

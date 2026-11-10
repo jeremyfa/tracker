@@ -1,6 +1,7 @@
 package tracker.test;
 
 import tracker.Autorun;
+import tracker.AutorunArray;
 
 /**
  * Checks that an autorun binds once to each field it reads, whatever the
@@ -30,11 +31,11 @@ class AutorunBindMain {
 
     /** How many times `autorun` is in the autorun array of `field` of `model` */
     public static function bindings(model:Fields, field:String, autorun:Autorun):Int {
-        final array:Array<Autorun> = Reflect.field(model, field + 'Autoruns');
+        final array:AutorunArray = Reflect.field(model, field + 'Autoruns');
         if (array == null) return 0;
         var count = 0;
-        for (item in array) {
-            if (item == autorun) count++;
+        for (i in 0...array.length) {
+            if (array.get(i) == autorun) count++;
         }
         return count;
     }

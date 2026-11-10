@@ -24,28 +24,12 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
     @:noCompletion public var owner:Owner = null;
 
-    var boundAutorunArrays:Array<Array<Autorun>> = null;
-
     /**
-     * Number of autorun arrays this autorun was bound to when it last
-     * unbound. Used as a size hint when requesting a recycled array from the
-     * pool: an autorun tends to bind a similar number of observables on every
-     * run, so the pool can hand back an array that already has the right
-     * capacity instead of an arbitrary one.
+     * The field arrays this autorun is bound to and its slot in each of them
+     * (`null` until the first binding, kept from run to run, recycled when
+     * the autorun is destroyed).
      */
-    var lastBoundArraysCount:Int = 0;
-
-    /**
-     * Rolling lower bound of this autorun's array capacity bucket, used on
-     * BOTH sides of the pool round-trip. On get, it makes the autorun request
-     * at least the bucket it historically needed (a binder whose binding count
-     * oscillates between scenes would otherwise request a small array on its
-     * big phase - the size hint lags one run behind - and grow a brand new
-     * large buffer every cycle). On recycle, it makes the array go back to
-     * the bucket of its actual capacity (which never shrinks), not the bucket
-     * of the last run's usage.
-     */
-    var boundArraysCapacityBucket:Int = 0;
+    var bindings:AutorunBindings = null;
 
     public var invalidated(default,null):Bool = false;
 
@@ -87,6 +71,13 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
         // Drop the owner reference so a destroyed autorun kept around by user
         // code (e.g. in an array awaiting cleanup) never retains its entity.
         owner = null;
+
+        // Give the (now empty) bindings back
+        var bindings = this.bindings;
+        if (bindings != null && bindings.count == 0) {
+            this.bindings = null;
+            AutorunBindings.recycle(bindings);
+        }
 
         // Destroy
         super.destroy();
@@ -200,123 +191,65 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Autorun arrays
 
-    public function bindToAutorunArray(autorunArray:Array<Autorun>):Void {
+    public function bindToAutorunArray(autorunArray:AutorunArray):Void {
 
         // There is no reason to bind to an already invalidated autorun.
         // (this should not happen when correctly used by the way)
         if (invalidated || destroyed) return;
 
-        // Check if this autorun array is already bound. This autorun is in
-        // `autorunArray` exactly when `autorunArray` is in `boundAutorunArrays`
-        // (both are updated together, and unbinding clears this autorun's
-        // entry), so the shorter of the two lists is searched. A bound
-        // autorun is put last in the array: reading the same field again is
-        // found at once.
-        var alreadyBound = false;
-        if (boundAutorunArrays == null) {
-            boundAutorunArrays = getArrayOfAutorunArrays(lastBoundArraysCount, boundArraysCapacityBucket);
-            boundArraysCapacityBucket = _lastServedSizeBucket;
+        // Read again right after binding (the common case): already bound
+        if (autorunArray.lastBinder == this) return;
+
+        var bindings = this.bindings;
+        if (bindings == null) {
+            bindings = AutorunBindings.get();
+            this.bindings = bindings;
         }
-        else {
-            var len = autorunArray.length;
-            if (len > 0 && autorunArray.unsafeGet(len - 1) == this) {
-                alreadyBound = true;
-            }
-            else if (len <= boundAutorunArrays.length) {
-                var i = len - 2;
-                while (i >= 0) {
-                    if (autorunArray.unsafeGet(i) == this) {
-                        alreadyBound = true;
-                        break;
-                    }
-                    i--;
-                }
-            }
-            else {
-                for (i in 0...boundAutorunArrays.length) {
-                    if (boundAutorunArrays.unsafeGet(i) == autorunArray) {
-                        alreadyBound = true;
-                        break;
-                    }
-                }
-            }
+        else if (bindings.count > 0 && bindings.contains(autorunArray)) {
+            // Already bound (another autorun bound to it since): O(1), see `AutorunBindings`
+            autorunArray.lastBinder = this;
+            return;
         }
 
-        // If not, do it
-        if (!alreadyBound) {
-            var nullIndex = -1;
-            var len = autorunArray.length;
-
-            // Look for a null entry
-            var i = len - 1;
-            while (i >= 0) {
-                var item = autorunArray.unsafeGet(i);
-                if (item == null) {
-                    nullIndex = i;
-                    break;
-                }
-                i--;
-            }
-
-            if (nullIndex == -1) {
-                // No null entry, just add a new one
-                autorunArray.push(this);
-            }
-            else {
-                // There is a null entry, shift by one items after and put at the end
-                var lenMinus1 = len - 1;
-                if (nullIndex < lenMinus1) {
-                    for (i in nullIndex+1...len) {
-                        var item = autorunArray.unsafeGet(i);
-                        var iMinus1 = i - 1;
-                        autorunArray.unsafeSet(iMinus1, item);
-                    }
-                }
-                autorunArray.unsafeSet(lenMinus1, this);
-            }
-            boundAutorunArrays.push(autorunArray);
-        }
+        // Bind: append to the field array, remember the slot
+        var slot = autorunArray.add(this, bindings.count);
+        bindings.add(autorunArray, slot);
+        autorunArray.lastBinder = this;
 
     }
 
     public function unbindFromAllAutorunArrays():Void {
 
-        if (boundAutorunArrays != null) {
+        var bindings = this.bindings;
+        if (bindings != null && bindings.count > 0) {
 
-            for (ii in 0...boundAutorunArrays.length) {
-                var autorunArray = boundAutorunArrays.unsafeGet(ii);
-
-                var numNulls = 0;
-                var len = autorunArray.length;
-                for (i in 0...len) {
-                    var autorun = autorunArray.unsafeGet(i);
-                    if (autorun != null) {
-                        if (autorun == this) {
-                            autorunArray.unsafeSet(i, null);
-                            break;
-                        }
-                    }
-                }
+            // Clear each slot directly: O(1) per binding
+            var arrays = bindings.arrays;
+            var slots = bindings.slots;
+            for (i in 0...bindings.count) {
+                arrays.unsafeGet(i).remove(this, slots.unsafeGet(i));
             }
 
-            lastBoundArraysCount = boundAutorunArrays.length;
-            var lengthBucket = poolSizeBucket(lastBoundArraysCount);
-            if (lengthBucket > boundArraysCapacityBucket) boundArraysCapacityBucket = lengthBucket;
-            recycleArrayOfAutorunArrays(boundAutorunArrays, boundArraysCapacityBucket);
-            boundAutorunArrays = null;
+            bindings.clear();
         }
 
     }
 
 /// More static helpers
 
-    public static function invalidateAutorunArray(autorunArray:Array<Autorun>):Void {
+    public static function invalidateAutorunArray(autorunArray:AutorunArray):Void {
 
-        for (i in 0...autorunArray.length) {
-            var autorun = autorunArray[i];
+        // Oldest binding first. Invalidated autoruns unbind (their slot
+        // becomes null) while this runs; nothing binds to this array any more
+        // (the field dropped it), so it is never compacted meanwhile.
+        var autoruns = autorunArray.autoruns;
+        var i = 0;
+        while (i < autoruns.length) {
+            var autorun = autoruns.unsafeGet(i);
             if (autorun != null) {
                 autorun.invalidate();
             }
+            i++;
         }
 
         inline recycleAutorunArray(autorunArray);
@@ -325,30 +258,13 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
 
 /// Recycling autorun arrays
 
-    // Recycled arrays are grouped in size buckets, based on their length at
-    // recycle time (a lower bound of their actual capacity, since an array's
-    // capacity never shrinks). Requests provide a size hint so the pool can
-    // return an array whose capacity already matches the expected usage: a
-    // large binder gets back a large array (no repeated regrowth), and small
-    // users never end up holding large-capacity buffers - without this,
-    // recycled arrays get shuffled arbitrarily between users and more and
-    // more of them ratchet up to large capacities over time.
-    static inline final POOL_SIZE_BUCKETS:Int = 5;
-
-    inline static function poolSizeBucket(size:Int):Int {
-        return size <= 8 ? 0 : size <= 32 ? 1 : size <= 128 ? 2 : size <= 512 ? 3 : 4;
-    }
-
-    // Single-stack pool: unlike the per-autorun binding arrays below, the
-    // observable-side AutorunArrays are homogeneous (an observable's watcher
-    // count is small and similar across observables) and their callers have
-    // no size hint to provide, so size buckets would starve the pool (every
-    // recycled array would land in a bucket that hintless get() calls never
-    // look into). The original single stack recirculates everything.
-    static var _autorunArrays:Array<Array<Autorun>> = [];
+    // Single stack pool: the observable side arrays are homogeneous (an
+    // observable's watcher count is small and similar across observables)
+    // and their callers have no size hint to provide.
+    static var _autorunArrays:Array<AutorunArray> = [];
     static var _autorunArraysLen:Int = 0;
 
-    public static function getAutorunArray():Array<Autorun> {
+    public static function getAutorunArray():AutorunArray {
 
         if (_autorunArraysLen > 0) {
             _autorunArraysLen--;
@@ -357,74 +273,17 @@ class Autorun extends #if tracker_ceramic ceramic.Entity #else Entity #end {
             return array;
         }
         else {
-            return [];
+            return new AutorunArray();
         }
 
     }
 
-    public static function recycleAutorunArray(array:Array<Autorun>):Void {
+    public static function recycleAutorunArray(array:AutorunArray):Void {
 
-        #if cpp
-        untyped array.__SetSize(0);
-        #else
-        array.splice(0, array.length);
-        #end
+        array.clear();
 
         _autorunArrays[_autorunArraysLen] = array;
         _autorunArraysLen++;
-
-    }
-
-/// Recycling array of autorun arrays
-
-    static var _arrayOfAutorunArrays:Array<Array<Array<Array<Autorun>>>> = [[], [], [], [], []];
-    static var _arrayOfAutorunArraysLen:Array<Int> = [0, 0, 0, 0, 0];
-
-    /**
-     * Size bucket the last `getArrayOfAutorunArrays()` call actually served
-     * from (it can be lower than the requested hint, or 0 for a fresh array).
-     * Read it right after the call: callers keep it and hand it back on
-     * recycle as a permanent lower bound of the array's capacity bucket.
-     */
-    public static var _lastServedSizeBucket(default, null):Int = 0;
-
-    public static function getArrayOfAutorunArrays(sizeHint:Int = 0, capacityBucketHint:Int = 0):Array<Array<Autorun>> {
-
-        var sizeBucket = poolSizeBucket(sizeHint);
-        if (capacityBucketHint > sizeBucket) sizeBucket = capacityBucketHint;
-        while (sizeBucket >= 0) {
-            var len = _arrayOfAutorunArraysLen.unsafeGet(sizeBucket);
-            if (len > 0) {
-                len--;
-                _arrayOfAutorunArraysLen.unsafeSet(sizeBucket, len);
-                var stack = _arrayOfAutorunArrays.unsafeGet(sizeBucket);
-                var array = stack.unsafeGet(len);
-                stack.unsafeSet(len, null);
-                _lastServedSizeBucket = sizeBucket;
-                return array;
-            }
-            sizeBucket--;
-        }
-
-        _lastServedSizeBucket = 0;
-        return [];
-
-    }
-
-    public static function recycleArrayOfAutorunArrays(array:Array<Array<Autorun>>, capacityBucketHint:Int = 0):Void {
-
-        var sizeBucket = poolSizeBucket(array.length);
-        if (capacityBucketHint > sizeBucket) sizeBucket = capacityBucketHint;
-
-        #if cpp
-        untyped array.__SetSize(0);
-        #else
-        array.splice(0, array.length);
-        #end
-
-        var len = _arrayOfAutorunArraysLen.unsafeGet(sizeBucket);
-        _arrayOfAutorunArrays.unsafeGet(sizeBucket)[len] = array;
-        _arrayOfAutorunArraysLen.unsafeSet(sizeBucket, len + 1);
 
     }
 
