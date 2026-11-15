@@ -13,6 +13,9 @@ class SaveModel {
 
     static var busyKeys:Array<String> = [];
 
+    /** Serializers of the models saved with `autoSaveAsKey` */
+    static var autoSaveSerializers:Array<SerializeModel> = [];
+
 /// Public API
 
     public static function getSavedOrCreate<T:Model>(modelClass:Class<T>, key:String, ?args:Array<Dynamic>):T {
@@ -24,6 +27,29 @@ class SaveModel {
         loadFromKey(instance, key);
 
         return instance;
+
+    }
+
+    /**
+     * Serializes now the pending changes of every model saved with
+     * `autoSaveAsKey`, without waiting for the next check interval. The
+     * writes are scheduled as usual (`backend.runInBackground`): an app that
+     * is about to end calls this, then waits for its background work.
+     * Call from the main thread.
+     */
+    public static function synchronizeAutoSaved():Void {
+
+        var i = 0;
+        while (i < autoSaveSerializers.length) {
+            var serializer = autoSaveSerializers[i];
+            if (serializer.destroyed || serializer.model == null || serializer.model.destroyed) {
+                autoSaveSerializers.splice(i, 1);
+            }
+            else {
+                serializer.synchronize();
+                i++;
+            }
+        }
 
     }
 
@@ -134,6 +160,10 @@ class SaveModel {
                 backupKey1, backupKey2 #end
             );
         });
+
+        if (autoSaveSerializers.indexOf(serializer) == -1) {
+            autoSaveSerializers.push(serializer);
+        }
 
         // Assign component
         if (model.serializer != serializer) {
