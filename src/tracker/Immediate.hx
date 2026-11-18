@@ -42,6 +42,9 @@ class Immediate {
      */
     var postFlushImmediateCallbacksLen:Int = 0;
 
+    /** Reusable immediate calls, used instead of closures */
+    var immediateCallPool:Array<ImmediateCall> = [];
+
     @:noCompletion public var loaders:Array<(done:()->Void)->Void> = [];
 
     /**
@@ -69,11 +72,9 @@ class Immediate {
 
     function _onceImmediateWithOwner(owner:tracker.Owner , handleImmediate:Void->Void #if tracker_debug_immediate , ?pos:haxe.PosInfos #end):Void {
 
-        _onceImmediate(function() {
-            if (owner == null || !owner.destroyed) {
-                handleImmediate();
-            }
-        } #if tracker_debug_immediate , pos #end);
+        // Same as scheduling `() -> if (owner == null || !owner.destroyed) handleImmediate()`,
+        // without allocating a closure on every call
+        _onceImmediate(ImmediateCall.get(this, owner, handleImmediate).callDyn #if tracker_debug_immediate , pos #end);
 
     }
 
@@ -126,11 +127,15 @@ class Immediate {
 
     function _oncePostFlushImmediateWithOwner(owner:tracker.Owner , handlePostFlushImmediate:Void->Void, defer:Bool):Void {
 
-        _oncePostFlushImmediate(function() {
-            if (owner == null || !owner.destroyed) {
-                handlePostFlushImmediate();
-            }
-        }, defer);
+        // Same as `_oncePostFlushImmediate(() -> if (owner == null || !owner.destroyed) handlePostFlushImmediate(), defer)`,
+        // without allocating a closure on every call
+        var call = ImmediateCall.get(this, owner, handlePostFlushImmediate);
+        if (defer) {
+            Tracker.backend.onceImmediate(call.deferDyn);
+        }
+        else {
+            _oncePostFlushImmediate(call.callDyn, false);
+        }
 
     }
 
@@ -158,9 +163,9 @@ class Immediate {
             }
         }
         else {
-            Tracker.backend.onceImmediate(function() {
-                oncePostFlushImmediate(handlePostFlushImmediate, false);
-            });
+            // Same as scheduling `() -> oncePostFlushImmediate(handlePostFlushImmediate, false)`
+            // as an immediate callback, without allocating a closure on every call
+            Tracker.backend.onceImmediate(ImmediateCall.get(this, null, handlePostFlushImmediate).deferDyn);
         }
 
     }
@@ -230,6 +235,70 @@ class Immediate {
 
         return didFlush;
 
+    }
+
+}
+
+/**
+ * A reusable immediate callback, used instead of a closure for the calls of `onceImmediate()`
+ * with an owner and of `oncePostFlushImmediate()` that need one. It goes back to the pool
+ * before calling the handler, so it can be reused by the handler itself.
+ */
+@:allow(tracker.Immediate)
+private class ImmediateCall {
+
+    static function get(immediate:Immediate, owner:tracker.Owner, handle:Void->Void):ImmediateCall {
+        var pool = @:privateAccess immediate.immediateCallPool;
+        var call = pool.length > 0 ? pool.pop() : new ImmediateCall(immediate);
+        call.owner = owner;
+        call.handle = handle;
+        return call;
+    }
+
+    var immediate:Immediate;
+
+    var owner:tracker.Owner = null;
+
+    var handle:Void->Void = null;
+
+    /** The `call` method as a function value, made once (taking it would allocate a closure each time) */
+    var callDyn:Void->Void;
+
+    /** The `defer` method as a function value, made once */
+    var deferDyn:Void->Void;
+
+    function new(immediate:Immediate) {
+        this.immediate = immediate;
+        callDyn = call;
+        deferDyn = defer;
+    }
+
+    /** Calls the handler, unless the owner is destroyed */
+    function call():Void {
+        var owner = this.owner;
+        var handle = this.handle;
+        release();
+        if (owner == null || !owner.destroyed) {
+            handle();
+        }
+    }
+
+    /** Run as an immediate callback: registers the call as a post flush immediate callback */
+    function defer():Void {
+        if (owner == null) {
+            var handle = this.handle;
+            release();
+            immediate.oncePostFlushImmediate(handle, false);
+        }
+        else {
+            @:privateAccess immediate._oncePostFlushImmediate(callDyn, false);
+        }
+    }
+
+    inline function release():Void {
+        owner = null;
+        handle = null;
+        @:privateAccess immediate.immediateCallPool.push(this);
     }
 
 }
