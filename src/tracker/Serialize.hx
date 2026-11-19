@@ -233,10 +233,10 @@ class Serialize {
                 case null:
                 default:
                 case TClass(c):
-                    switch (#if (neko || cs || python) Type.getClassName(c) #else c #end) {
+                    switch (#if (neko || python) Type.getClassName(c) #else c #end) {
                         case null:
                         default:
-                        case #if (neko || cs || python) "haxe.ds.StringMap" #else cast StringMap #end:
+                        case #if (neko || python) "haxe.ds.StringMap" #else cast StringMap #end:
                             var values:Array<Dynamic> = [];
                             var result:Dynamic = {
                                 sm: values
@@ -247,7 +247,7 @@ class Serialize {
                                 values.push(serializeValue(mapValue.get(key)));
                             }
                             return result;
-                        case #if (neko || cs || python) "haxe.ds.IntMap" #else cast IntMap #end:
+                        case #if (neko || python) "haxe.ds.IntMap" #else cast IntMap #end:
                             var values:Array<Dynamic> = [];
                             var result:Dynamic = {
                                 im: values

@@ -46,14 +46,6 @@ class Equal {
         return true;
     }
 
-    #if cs
-    public extern inline static overload function arrayEqual(a:Array<String>, b:Array<String>):Bool {
-        var aDyn:Any = a;
-        var bDyn:Any = b;
-        return _arrayEqual(cast aDyn, cast bDyn);
-    }
-    #end
-
     public extern inline static overload function arrayEqual(a:Array<Any>, b:Array<Any>):Bool {
         return _arrayEqual(a, b);
     }
